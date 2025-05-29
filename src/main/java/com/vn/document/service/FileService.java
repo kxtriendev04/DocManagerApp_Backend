@@ -12,6 +12,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import com.vn.document.util.AESUtil;
+import javax.crypto.SecretKey;
+import org.springframework.core.io.ByteArrayResource;
 
 @Service
 public class FileService {
@@ -39,9 +42,18 @@ public class FileService {
 
         Files.createDirectories(path.getParent());
 
-        try (InputStream inputStream = file.getInputStream()) {
-            Files.copy(inputStream, path, StandardCopyOption.REPLACE_EXISTING);
+        try {
+            byte[] originalBytes = file.getBytes();
+
+            // Tạm thời dùng khoá cứng
+            SecretKey key = AESUtil.generateKeyFromPassword("password");
+            byte[] encryptedBytes = AESUtil.encrypt(originalBytes, key);
+
+            Files.write(path, encryptedBytes);
+        } catch (Exception e) {
+            throw new IOException("Encryption failed", e);
         }
+
         return finalName;
     }
 
@@ -53,9 +65,16 @@ public class FileService {
         }
 
         try {
-            return new UrlResource(filePath.toUri());
+            byte[] encryptedBytes = Files.readAllBytes(filePath);
+
+            // Dùng lại mật khẩu đã dùng để mã hoá
+            SecretKey key = AESUtil.generateKeyFromPassword("password");
+
+            byte[] decryptedBytes = AESUtil.decrypt(encryptedBytes, key);
+
+            return new ByteArrayResource(decryptedBytes);
         } catch (Exception e) {
-            throw new IOException("Could not read the file: " + filename, e);
+            throw new IOException("Could not decrypt the file: " + filename, e);
         }
     }
 }
