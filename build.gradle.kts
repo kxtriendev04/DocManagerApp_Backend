@@ -57,6 +57,9 @@ dependencies {
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok-mapstruct-binding:0.2.0")
+
+    // Thư viện mã hoá
+    implementation ("org.springframework.security:spring-security-crypto:6.3.3")
 }
 
 tasks.withType<Test> {

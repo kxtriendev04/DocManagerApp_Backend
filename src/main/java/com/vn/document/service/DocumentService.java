@@ -6,8 +6,10 @@ import com.vn.document.domain.User;
 import com.vn.document.repository.DocumentRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,6 +19,7 @@ public class DocumentService {
     private final UserService userService;
     private final CategoryService categoryService;
     private final DocumentRepository documentRepository;
+    private final FileService fileService;
 
     public List<Document> getAllDocuments() {
         return documentRepository.findAll();
@@ -49,9 +52,27 @@ public class DocumentService {
                 .orElseThrow(() -> new RuntimeException("Document not found"));
     }
 
-    public void deleteDocument(Long id) {
+    @Transactional
+    public void deleteDocument(Long id, String password) {
+        Document document = documentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Document not found with id: " + id));
+
+        // Kiểm tra mật khẩu
+        if (!BCrypt.checkpw(password, document.getPassword())) {
+            throw new RuntimeException("Invalid password");
+        }
+
+        // Xóa tệp tin vật lý
+        try {
+            fileService.deleteFile(document.getFileUrl());
+        } catch (IOException e) {
+            throw new RuntimeException("Could not delete file for document id: " + id, e);
+        }
+
+        // Xóa bản ghi document
         documentRepository.deleteById(id);
     }
+
     public List<Document> getDocumentsByUserId(Long userId) {
         return documentRepository.findByUserId(userId);
     }

@@ -26,40 +26,55 @@ public class FileController {
 
     @PostMapping
     public ResponseEntity<String> postFile(@RequestPart("file") MultipartFile file,
-                                           @RequestParam("folder") String folder) throws URISyntaxException, IOException {
+                                           @RequestParam("folder") String folder,
+                                           @RequestParam("password") String password) throws URISyntaxException, IOException {
 //        Validate
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body("File trống.");
+        }
+        if (password == null || password.isEmpty()) {
+            return ResponseEntity.badRequest().body("Mật khẩu không được để trống.");
         }
 //        Create direction if not exitst
 //        fileService.createDirectory(baseUri + "/" + folder);
 //        String path = Paths.get(baseUri, folder).toString();
         fileService.createDirectory(folder);
 //        Store
-        String responsePath = "/storage/" + folder + "/" + fileService.handleStoreFile(file, folder);
+        String responsePath = fileService.handleStoreFile(file, folder, password);
         return ResponseEntity.ok(responsePath);
     }
 
     @PostMapping("/multi")
     public ResponseEntity<List<String>> postMultipleFiles(@RequestParam("files") MultipartFile[] files,
-                                                          @RequestParam("folder") String folder) throws IOException {
-        fileService.createDirectory(folder);
-
-        List<String> fileNames = new ArrayList<>();
-        for (MultipartFile file : files) {
-            String saved = fileService.handleStoreFile(file, folder);
-            fileNames.add("/storage/" + folder + "/" + saved);
+                                                          @RequestParam("folder") String folder,
+                                                          @RequestParam("password") String password) throws IOException {
+        if (files == null || files.length == 0) {
+            return ResponseEntity.badRequest().body(new ArrayList<>());
+        }
+        if (password == null || password.isEmpty()) {
+            return ResponseEntity.badRequest().body(new ArrayList<>());
         }
 
-        return ResponseEntity.ok(fileNames);
+        fileService.createDirectory(folder);
+        List<String> filePaths = new ArrayList<>();
+        for (MultipartFile file : files) {
+            String saved = fileService.handleStoreFile(file, folder, password);
+            filePaths.add(saved);
+        }
+
+        return ResponseEntity.ok(filePaths);
     }
 
 
     @GetMapping
     public ResponseEntity<Resource> downloadFile(@RequestParam String folder,
-                                                 @RequestParam String filename) throws IOException {
-        Resource file = fileService.loadFile(folder, filename);
+                                                 @RequestParam String filename,
+                                                 @RequestParam String password) throws IOException {
+        if (password == null || password.isEmpty()) {
+            return ResponseEntity.badRequest().body(null);
+        }
 
+        Resource file = fileService.loadFile(folder, filename, password);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .body(file);
