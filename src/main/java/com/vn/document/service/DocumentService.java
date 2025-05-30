@@ -37,7 +37,9 @@ public class DocumentService {
         document.setCategory(category);
         return documentRepository.save(document);
     }
-
+    public List<Document> getDocumentsByCategoryId(Long categoryId) {
+        return documentRepository.findByCategoryId(categoryId);
+    }
     public Document updateDocument(Long id, Document documentDetails) {
         return documentRepository.findById(id)
                 .map(document -> {
@@ -79,4 +81,18 @@ public class DocumentService {
     public Document handleFindDocumentById(Long id){
         return documentRepository.findById(id).orElseThrow(()->new RuntimeException("Document id không hợp lệ"));
     }
+    public List<Document> searchDocumentsByName(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("Tên tài liệu không được để trống");
+        }
+        return documentRepository.findByDocumentNameContainingIgnoreCase(name);
+    }
+
+    public List<Document> searchDocumentsByFileType(String fileType) {
+        if (fileType == null || fileType.trim().isEmpty()) {
+            throw new IllegalArgumentException("Định dạng file không được để trống");
+        }
+        return documentRepository.findByFileTypeContainingIgnoreCase(fileType);
+    }
+
 }

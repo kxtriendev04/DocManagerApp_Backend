@@ -31,7 +31,7 @@ public class User {
 
     @NotNull
     @Size(min = 6, message = "Mật khẩu phải chứa 6 ký tự trở lên")
-    @JsonIgnore
+
     private String password;
 
     @Enumerated(EnumType.STRING)

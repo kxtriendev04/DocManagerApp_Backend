@@ -101,4 +101,28 @@ public class DocumentController {
         List<Document> documents = documentService.getDocumentsByUserId(userId);
         return ResponseEntity.ok(documents);
     }
+    @GetMapping("/category/{categoryId}")
+    public List<Document> getDocumentsByCategoryId(@PathVariable Long categoryId) {
+        return documentService.getDocumentsByCategoryId(categoryId);
+    }
+    @GetMapping("/search/by-name")
+    public ResponseEntity<List<Document>> searchDocumentsByName(@RequestParam String name) {
+        try {
+            List<Document> documents = documentService.searchDocumentsByName(name);
+            return ResponseEntity.ok(documents);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/search/by-filetype")
+    public ResponseEntity<List<Document>> searchDocumentsByFileType(@RequestParam String fileType) {
+        try {
+            List<Document> documents = documentService.searchDocumentsByFileType(fileType);
+            return ResponseEntity.ok(documents);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
 }
