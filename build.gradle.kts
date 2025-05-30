@@ -60,6 +60,10 @@ dependencies {
 
     // Thư viện mã hoá
     implementation ("org.springframework.security:spring-security-crypto:6.3.3")
+
+    // Thư viện S3
+    implementation(platform("software.amazon.awssdk:bom:2.25.10"))
+    implementation("software.amazon.awssdk:s3")
 }
 
 tasks.withType<Test> {
