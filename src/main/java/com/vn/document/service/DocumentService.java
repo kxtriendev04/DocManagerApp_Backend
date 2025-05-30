@@ -88,11 +88,12 @@ public class DocumentService {
         return documentRepository.findByDocumentNameContainingIgnoreCase(name);
     }
 
-    public List<Document> searchDocumentsByFileType(String fileType) {
-        if (fileType == null || fileType.trim().isEmpty()) {
+    public List<Document> searchDocumentsByFileType(List<String> fileTypes) {
+        if (fileTypes == null || fileTypes.isEmpty()) {
             throw new IllegalArgumentException("Định dạng file không được để trống");
         }
-        return documentRepository.findByFileTypeContainingIgnoreCase(fileType);
+        return documentRepository.findByFileTypeInIgnoreCase(fileTypes);
     }
+
 
 }

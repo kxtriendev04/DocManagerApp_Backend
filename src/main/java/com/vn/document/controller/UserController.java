@@ -10,6 +10,7 @@ import java.util.List;
 
 import org.springframework.data.crossstore.ChangeSetPersister.NotFoundException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -77,9 +78,18 @@ public class UserController {
         }
         return ResponseEntity.ok(updatedUser);
     }
-    @GetMapping("/myinfor{email}")
+    @GetMapping("/myinfor/{email}")
     public ResponseEntity<User> getUserByEmail(@PathVariable String email) {
         User user = userService.handleGetUserByUsername(email);
         return user != null ? ResponseEntity.ok(user) : ResponseEntity.notFound().build();
     }
+
+//@GetMapping("/myinfor")
+//public ResponseEntity<User> getMyInfor(@AuthenticationPrincipal org.springframework.security.core.userdetails.User principal) {
+//    String email = principal.getUsername(); // hoặc getEmail() nếu custom UserDetails
+//
+//    User user = userService.handleGetUserByUsername(email);
+//    return user != null ? ResponseEntity.ok(user) : ResponseEntity.notFound().build();
+//}
+
 }

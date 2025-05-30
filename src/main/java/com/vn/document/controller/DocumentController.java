@@ -116,7 +116,7 @@ public class DocumentController {
     }
 
     @GetMapping("/search/by-filetype")
-    public ResponseEntity<List<Document>> searchDocumentsByFileType(@RequestParam String fileType) {
+    public ResponseEntity<List<Document>> searchDocumentsByFileType(@RequestParam List<String> fileType) {
         try {
             List<Document> documents = documentService.searchDocumentsByFileType(fileType);
             return ResponseEntity.ok(documents);
@@ -124,5 +124,6 @@ public class DocumentController {
             return ResponseEntity.badRequest().build();
         }
     }
+
 
 }
