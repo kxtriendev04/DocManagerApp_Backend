@@ -37,7 +37,9 @@ public class DocumentService {
         document.setCategory(category);
         return documentRepository.save(document);
     }
-
+    public List<Document> getDocumentsByCategoryId(Long categoryId) {
+        return documentRepository.findByCategoryId(categoryId);
+    }
     public Document updateDocument(Long id, Document documentDetails) {
         return documentRepository.findById(id)
                 .map(document -> {

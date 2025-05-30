@@ -102,4 +102,8 @@ public class DocumentController {
         List<Document> documents = documentService.getDocumentsByUserId(userId);
         return ResponseEntity.ok(documents);
     }
+    @GetMapping("/category/{categoryId}")
+    public List<Document> getDocumentsByCategoryId(@PathVariable Long categoryId) {
+        return documentService.getDocumentsByCategoryId(categoryId);
+    }
 }
