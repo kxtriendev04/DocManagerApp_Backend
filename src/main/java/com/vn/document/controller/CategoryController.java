@@ -18,8 +18,9 @@ public class CategoryController {
     private final CategoryService categoryService;
 
     @GetMapping
-    public List<Category> getAllCategories() {
-        return categoryService.getAllCategories();
+    public ResponseEntity<List<Category>> getAllCategories() {
+        List<Category> categories = categoryService.getAllCategories();
+        return ResponseEntity.ok(categories);
     }
 
     @GetMapping("/{id}")
@@ -50,6 +51,7 @@ public class CategoryController {
         categoryService.deleteCategory(id);
         return ResponseEntity.noContent().build();
     }
+
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<Category>> findCategoryByUserId(@PathVariable Long userId) {
         List<Category> list = categoryService.handleFindCategoryByUserId(userId);

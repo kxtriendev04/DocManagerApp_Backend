@@ -1,6 +1,7 @@
 package com.vn.document.service;
 
 import com.vn.document.domain.Category;
+import com.vn.document.domain.CategoryGroup;
 import com.vn.document.domain.User;
 import com.vn.document.repository.CategoryRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,10 @@ public class CategoryService {
     public Category createCategory(Category category) {
         User user = userService.handleFindUserById(category.getUser().getId());
         category.setUser(user);
+        // Đặt giá trị mặc định là MAIN_BOOSTER nếu categoryGroup là null
+        if (category.getCategoryGroup() == null) {
+            category.setCategoryGroup(CategoryGroup.MAIN_BOOSTER);
+        }
         return categoryRepository.save(category);
     }
 
@@ -33,18 +38,23 @@ public class CategoryService {
         return categoryRepository.findById(categoryId)
                 .map(category -> {
                     category.setCategoryName(categoryDetails.getCategoryName());
-                    category.setUpdatedAt(categoryDetails.getUpdatedAt());
+                    category.setCategoryGroup(categoryDetails.getCategoryGroup() != null
+                            ? categoryDetails.getCategoryGroup()
+                            : CategoryGroup.MAIN_BOOSTER); // Đặt mặc định nếu null
+                    category.setUpdatedAt(new java.sql.Timestamp(System.currentTimeMillis()));
                     return categoryRepository.save(category);
                 })
                 .orElseThrow(() -> new RuntimeException("Category not found"));
     }
-    public Category handleFindCategoryById(Long id){
-        return categoryRepository.findById(id).orElseThrow(()->(new RuntimeException("Category id không hợp lệ!")));
-    }
-    public List<Category> handleFindCategoryByUserId(Long userId){
-        return categoryRepository.findByUserId(userId);
+
+    public Category handleFindCategoryById(Long id) {
+        return categoryRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Category id không hợp lệ!"));
     }
 
+    public List<Category> handleFindCategoryByUserId(Long userId) {
+        return categoryRepository.findByUserId(userId);
+    }
 
     public void deleteCategory(Long categoryId) {
         categoryRepository.deleteById(categoryId);

@@ -27,6 +27,10 @@ public class Category {
     @Column(name = "category_name", nullable = false)
     private String categoryName;
 
+    @Column(name = "category_group", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private CategoryGroup categoryGroup;
+
     @Column(name = "created_at", updatable = false)
     private Timestamp createdAt;
 
