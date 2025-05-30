@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/auth")
 public class AuthController {
     // dependency injection
     @Autowired
@@ -56,29 +56,11 @@ public class AuthController {
     }
 
     @GetMapping("/account")
-    public ResponseEntity<User> getAccount(@RequestParam String email) {
+    public ResponseEntity<User> getAccount() {
 
-//        String email = securityUtil.getCurrentUserLogin().isPresent()
-//                ? SecurityUtil.getCurrentUserLogin().get() : "";
+        String email = securityUtil.getCurrentUserLogin().isPresent()
+                ? SecurityUtil.getCurrentUserLogin().get() : "";
         User currentUser = userService.handleGetUserByUsername(email);
-//        UserResponseDTO userResponseDTO = new UserResponseDTO();
-//        LoginResponseDTO loginResponseDTO = new LoginResponseDTO();
-//        LoginResponseDTO.UserLogin userLogin = new LoginResponseDTO.UserLogin();
-
-//        if(currentUser != null){
-//            userResponseDTO.setId(currentUser.getId());
-//            userResponseDTO.setFullName(currentUser.getFullName());
-//            userResponseDTO.setEmail(currentUser.getEmail());
-//            userResponseDTO.setPhoneNumber(currentUser.getPhoneNumber());
-//            userResponseDTO.setGender(currentUser.getGender().toString());
-//            userResponseDTO.setRole(currentUser.getRole().toString());
-//            userResponseDTO.setStatus(currentUser.getStatus());
-//            userResponseDTO.setAvatarUrl(currentUser.getAvatarUrl());
-//            userLogin.setId(currentUser.getId());
-//            userLogin.setEmail(currentUser.getEmail());
-//            userLogin.setFullName(currentUser.getFullName());
-//            loginResponseDTO.setUser(userLogin);
-//        }
         return ResponseEntity.ok(currentUser);
     }
 
