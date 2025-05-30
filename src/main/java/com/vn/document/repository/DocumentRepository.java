@@ -11,4 +11,7 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     List<Document> findByUserId(Long userId);
     List<Document> findByCategoryId(Long categoryId);
     Document findByFileUrl(String fileUrl);
+    List<Document> findByDocumentNameContainingIgnoreCase(String documentName);
+
+    List<Document> findByFileTypeContainingIgnoreCase(String fileType);
 }
