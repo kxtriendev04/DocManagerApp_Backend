@@ -29,6 +29,16 @@ public class Bookmark {
     @JoinColumn(name = "doc_id", nullable = false)
     private Document document;
 
+    @ManyToOne
+    @JoinColumn(name = "category_id")
+    private Category category;
+
+    @Column(name = "note", length = 500)
+    private String note;
+
+    @Column(name = "is_favorite")
+    private Boolean isFavorite = false;
+
     @Column(name = "created_at")
     private Timestamp createdAt;
 
