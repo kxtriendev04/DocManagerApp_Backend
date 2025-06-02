@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface PermissionRepository extends JpaRepository<Permission, Long> {
@@ -14,4 +15,7 @@ public interface PermissionRepository extends JpaRepository<Permission, Long> {
 
     // Tìm quyền của tài liệu theo docId
     List<Permission> findByDocumentId(Long docId);
+
+    Optional<Permission> findByUserIdAndDocumentId(Long userId, Long documentId);
+
 }

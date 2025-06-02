@@ -2,8 +2,10 @@ package com.vn.document.service;
 
 import com.vn.document.domain.Category;
 import com.vn.document.domain.Document;
+import com.vn.document.domain.Permission;
 import com.vn.document.domain.User;
 import com.vn.document.repository.DocumentRepository;
+import com.vn.document.repository.PermissionRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +23,7 @@ public class DocumentService {
     private final CategoryService categoryService;
     private final DocumentRepository documentRepository;
     private final FileService fileService;
+    private final PermissionRepository permissionRepository;
 
     public List<Document> getAllDocuments() {
         return documentRepository.findAll();
@@ -27,6 +31,14 @@ public class DocumentService {
 
     public Optional<Document> getDocumentById(Long id) {
         return documentRepository.findById(id);
+    }
+
+    public List<Document> getSharedDocumentsForUser(Long userId) {
+        List<Permission> permissions = permissionRepository.findByUserId(userId);
+        return permissions.stream()
+                .map(Permission::getDocument)
+                .distinct()
+                .collect(Collectors.toList());
     }
 
     @Transactional

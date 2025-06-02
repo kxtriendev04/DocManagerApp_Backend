@@ -30,6 +30,13 @@ public class DocumentController {
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 
+    @GetMapping("/shared/{userId}")
+    public ResponseEntity<List<Document>> getSharedDocuments(@PathVariable Long userId) {
+        List<Document> sharedDocuments = documentService.getSharedDocumentsForUser(userId);
+        return ResponseEntity.ok(sharedDocuments);
+    }
+
+
     @PostMapping
     public ResponseEntity<Document> createDocument(@RequestBody Document document) {
         // Kiểm tra dữ liệu đầu vào

@@ -74,6 +74,12 @@ public class UserService {
         return userRepository.findById(id).orElseThrow(()->new RuntimeException("User không tồn tại!"));
     }
 
+    public User handleFindUserByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
+    }
+
+
     public User getUserByRefreshTokenAndEmail(String token, String email) {
         User user = userRepository.findByRefreshTokenAndEmail(token, email);
         if (user != null)
