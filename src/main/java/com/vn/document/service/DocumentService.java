@@ -68,6 +68,8 @@ public class DocumentService {
 
     @Transactional
     public void deleteDocument(Long id, String password) {
+        permissionRepository.deleteByDocumentId(id);
+
         Document document = documentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Document not found with id: " + id));
 

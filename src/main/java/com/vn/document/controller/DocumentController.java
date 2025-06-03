@@ -36,7 +36,6 @@ public class DocumentController {
         return ResponseEntity.ok(sharedDocuments);
     }
 
-
     @PostMapping
     public ResponseEntity<Document> createDocument(@RequestBody Document document) {
         // Kiểm tra dữ liệu đầu vào
