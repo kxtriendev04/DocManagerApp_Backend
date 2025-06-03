@@ -131,5 +131,10 @@ public class DocumentController {
         }
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<List<Document>> searchDocuments(@RequestParam String keyword) {
+        List<Document> documents = documentService.searchDocumentsByKeyword(keyword);
+        return ResponseEntity.ok(documents);
+    }
 
 }
