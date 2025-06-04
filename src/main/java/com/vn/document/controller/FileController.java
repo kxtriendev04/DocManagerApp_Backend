@@ -24,9 +24,6 @@ public class FileController {
     public ResponseEntity<String> postFile(@RequestPart("file") MultipartFile file,
                                            @RequestParam("folder") String folder,
                                            @RequestParam("password") String password) throws IOException {
-        //C:\Users\Dunk\Documents\NCKH-II-2024\test.docx
-        //file 235476875632543-test.docx
-        //folder \Storage\<userid>\Documents\NCKH-II-2024\
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body("File trống.");
         }

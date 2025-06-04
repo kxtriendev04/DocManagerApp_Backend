@@ -1,8 +1,9 @@
 package com.vn.document.service;
 
 import com.vn.document.domain.User;
-import com.vn.document.repository.UserRepository;
+import com.vn.document.repository.*;
 import com.vn.document.util.RoleEnum;
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -11,9 +12,19 @@ import java.util.Optional;
 @Service
 public class UserService {
     private UserRepository userRepository;
+    private final AccessLogRepository accessLogRepository;
+    private final BookmarkRepository bookmarkRepository;
+    private final CategoryRepository categoryRepository;
+    private final DocumentRepository documentRepository;
+    private final PermissionRepository permissionRepository;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, AccessLogRepository accessLogRepository, BookmarkRepository bookmarkRepository, CategoryRepository categoryRepository, DocumentRepository documentRepository, PermissionRepository permissionRepository) {
         this.userRepository = userRepository;
+        this.accessLogRepository = accessLogRepository;
+        this.bookmarkRepository = bookmarkRepository;
+        this.categoryRepository = categoryRepository;
+        this.documentRepository = documentRepository;
+        this.permissionRepository = permissionRepository;
     }
 
     public User handleGetUserByUsername(String email) {
@@ -45,8 +56,14 @@ public class UserService {
     }
 
     // Xóa user theo ID
+    @Transactional
     public long handleDeleteUser(long id) {
         if (userRepository.existsById(id)) {
+            accessLogRepository.deleteAllByUserId(id);
+            bookmarkRepository.deleteAllByUserId(id);
+            categoryRepository.deleteAllByUserId(id);
+            documentRepository.deleteAllByUserId(id);
+            permissionRepository.deleteAllByUserId(id);
             userRepository.deleteById(id);
             return id;
         }
@@ -79,7 +96,6 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
     }
 
-
     public User getUserByRefreshTokenAndEmail(String token, String email) {
         User user = userRepository.findByRefreshTokenAndEmail(token, email);
         if (user != null)
@@ -87,6 +103,4 @@ public class UserService {
         else
             throw new RuntimeException("Refresh token không hợp lệ!!!");
     }
-
-
 }

@@ -14,4 +14,6 @@ public interface AccessLogRepository extends JpaRepository<AccessLog, Long> {
 
     // Tìm tất cả nhật ký truy cập của tài liệu theo docId
     List<AccessLog> findByDocumentId(Long docId);
+
+    void deleteAllByUserId(Long userId);
 }

@@ -22,4 +22,6 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
             "OR LOWER(d.fileType) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(d.category.categoryName) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     List<Document> searchByKeyword(@Param("keyword") String keyword);
+
+    void deleteAllByUserId(Long userId);
 }
