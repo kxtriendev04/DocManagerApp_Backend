@@ -12,9 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.*;
 
 import java.io.IOException;
 
@@ -49,6 +47,31 @@ public class FileService {
         } catch (Exception e) {
             throw new IOException("Encryption or S3 upload failed", e);
         }
+    }
+
+    public long getFolderSize(String folderPrefix) {
+        long totalSize = 0;
+
+        String continuationToken = null;
+        do {
+            ListObjectsV2Request.Builder requestBuilder = ListObjectsV2Request.builder()
+                    .bucket(bucketName)
+                    .prefix(folderPrefix)
+                    .maxKeys(1000); // optional
+
+            if (continuationToken != null) {
+                requestBuilder.continuationToken(continuationToken);
+            }
+
+            ListObjectsV2Response response = s3Client.listObjectsV2(requestBuilder.build());
+            for (S3Object s3Object : response.contents()) {
+                totalSize += s3Object.size();
+            }
+
+            continuationToken = response.nextContinuationToken();
+        } while (continuationToken != null);
+
+        return totalSize;
     }
 
     public Resource loadFile(String folder, String filename, String password) throws IOException {
