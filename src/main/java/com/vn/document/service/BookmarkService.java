@@ -1,6 +1,7 @@
 package com.vn.document.service;
 
 import com.vn.document.domain.Bookmark;
+import com.vn.document.domain.Category;
 import com.vn.document.domain.Document;
 import com.vn.document.domain.User;
 import com.vn.document.repository.BookmarkRepository;
@@ -72,9 +73,16 @@ public class BookmarkService {
 
     // Cập nhật bookmark
     public Bookmark updateBookmark(Long id, Bookmark updatedBookmark) {
-        Bookmark bookmark = bookmarkRepository.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy"));
-        bookmark.setDocument(updatedBookmark.getDocument()); // hoặc chỉ cập nhật vài trường
-        // Có thể cập nhật thêm category, note nếu cần
+        Bookmark bookmark = bookmarkRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy bookmark"));
+        if (updatedBookmark.getDocument() != null && updatedBookmark.getDocument().getCategory() != null) {
+            Category category = new Category();
+            category.setId(updatedBookmark.getDocument().getCategory().getId());
+            bookmark.setCategory(category);
+        }
+        if (updatedBookmark.getNote() != null) {
+            bookmark.setNote(updatedBookmark.getNote());
+        }
         return bookmarkRepository.save(bookmark);
     }
 

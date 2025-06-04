@@ -108,6 +108,11 @@ public class DocumentService {
         }
         return documentRepository.findByFileTypeInIgnoreCase(fileTypes);
     }
-
+    public List<Document> searchDocumentsByKeyword(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            throw new IllegalArgumentException("Từ khóa tìm kiếm không được để trống");
+        }
+        return documentRepository.searchByKeyword(keyword);
+    }
 
 }
