@@ -1,8 +1,14 @@
 package com.vn.document.service;
 
+import com.vn.document.domain.Category;
 import com.vn.document.domain.Document;
+import com.vn.document.domain.DocumentVersion;
+import com.vn.document.domain.User;
+import com.vn.document.domain.dto.response.FileUploadResponse;
 import com.vn.document.repository.DocumentRepository;
+import com.vn.document.repository.DocumentVersionRepository;
 import com.vn.document.util.AESUtil;
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -13,14 +19,16 @@ import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
+
+import java.sql.Timestamp;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.List;
 
-import java.io.File;
 import java.io.IOException;
 
 @Service
+@Getter
 public class FileService {
 
     @Value("${cloud.aws.s3.bucket}")
@@ -35,32 +43,33 @@ public class FileService {
     @Autowired
     private WaterMarkService waterMarkService;
 
-    public String handleStoreFile(MultipartFile file, String folder, String password) throws IOException {
+    @Autowired
+    private DocumentVersionRepository documentVersionRepository;
+
+    public FileUploadResponse handleUploadNewVersion(
+            MultipartFile file, String folder, String password, User user, Category category, Long documentId
+    ) throws IOException {
         String finalName = System.currentTimeMillis() + "-" + file.getOriginalFilename();
-        String s3Key = folder + "/" + finalName; // Tạo key cho S3 (e.g., "folder/filename")
+        String s3Key = folder + "/" + finalName;
 
         try {
             // Kiểm tra định dạng tệp
             String fileExtension = getFileExtension(file.getOriginalFilename());
             String watermarkText = "Watermark";
-            MultipartFile watermarkedFile = null;
+            MultipartFile watermarkedFile = file; // Default to original file if no watermarking is applied
+
             // Kiểm tra loại tệp và gọi hàm tương ứng
             if (fileExtension.equalsIgnoreCase("pdf")) {
-                // Xử lý watermark cho PDF
                 watermarkedFile = waterMarkService.addWatermarkToPDF(file, watermarkText);
             } else if (fileExtension.equalsIgnoreCase("docx")) {
-                // Xử lý watermark cho DOCX
                 watermarkedFile = waterMarkService.addWatermarkToDocx(file, watermarkText);
             } else if (isImage(fileExtension)) {
-                // Xử lý watermark cho ảnh
                 watermarkedFile = waterMarkService.addWatermarkToImage(file, watermarkText);
             } else if (isVideo(fileExtension)) {
-                // Xử lý watermark cho video
                 watermarkedFile = waterMarkService.addWatermarkToVideo(file, watermarkText);
             }
 
-
-//          Mã hóa
+            // Mã hóa
             byte[] originalBytes = watermarkedFile.getBytes();
             byte[] encryptedBytes = AESUtil.encrypt(originalBytes, password);
 
@@ -71,9 +80,74 @@ public class FileService {
                     .build();
             s3Client.putObject(putObjectRequest, RequestBody.fromBytes(encryptedBytes));
 
-            return "/storage/" + folder + "/" + finalName; // Trả về fileUrl cho Document
+            long fileSize = encryptedBytes.length;
+            String s3Url = "/storage/" + folder + "/" + finalName;
+
+            Document document;
+            int newVersionNumber;
+
+            if (documentId == null) {
+                // Tạo mới Document
+                document = new Document();
+                document.setUser(user);
+                document.setCategory(category);
+                document.setDocumentName(file.getOriginalFilename());
+                document.setFileType(getFileExtension(file.getOriginalFilename()));
+                if (s3Url != null && !s3Url.startsWith("/storage/")) {
+                    document.setFileUrl(s3Url);
+                }
+                document.setPassword(BCrypt.hashpw(password, BCrypt.gensalt()));
+                document.setEncryptionMethod("AES");
+                Timestamp now = new Timestamp(System.currentTimeMillis());
+                document.setCreatedAt(now);
+                document.setUpdatedAt(now);
+                document.setIsFavorite(false);
+                documentRepository.save(document);
+
+                newVersionNumber = 1;
+            } else {
+                // Lấy Document đã tồn tại
+                document = documentRepository.findById(documentId)
+                        .orElseThrow(() -> new RuntimeException("Document không tồn tại"));
+
+                // Lấy versionNumber max hiện tại
+                Integer maxVersion = documentVersionRepository.findMaxVersionByDocumentId(documentId);
+                newVersionNumber = (maxVersion == null ? 0 : maxVersion) + 1;
+            }
+
+            // Tạo version mới
+            DocumentVersion newVersion = new DocumentVersion();
+            newVersion.setDocument(document);
+            newVersion.setVersionNumber(newVersionNumber);
+            newVersion.setS3Url(s3Url);
+            newVersion.setFileSize((int) fileSize);
+            documentVersionRepository.save(newVersion);
+
+            // Trả về response
+            return new FileUploadResponse(s3Url, fileSize, document.getId(), newVersion.getId());
         } catch (Exception e) {
-            throw new IOException("Encryption or S3 upload failed", e);
+            e.printStackTrace(); // Thêm dòng này để in chi tiết stacktrace
+            throw new IOException("Encryption or S3 upload failed: " + e.getMessage(), e);
+        }
+    }
+
+    public DocumentVersion getDocumentVersion(Long documentId, Long versionId) throws IOException {
+        // Kiểm tra document tồn tại
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IOException("Không tìm thấy document với ID: " + documentId));
+
+        // Lấy version
+        if (versionId != null) {
+            DocumentVersion version = documentVersionRepository.findById(versionId)
+                    .orElseThrow(() -> new IOException("Không tìm thấy version với ID: " + versionId));
+            if (!version.getDocument().getId().equals(document.getId())) {
+                throw new IOException("Version không thuộc về document được chỉ định");
+            }
+            return version;
+        } else {
+            DocumentVersion latestVersion = documentVersionRepository.findLatestVersionByDocumentId(document.getId())
+                    .orElseThrow(() -> new IOException("Không tìm thấy version nào cho document: " + document.getId()));
+            return latestVersion;
         }
     }
 
@@ -85,7 +159,7 @@ public class FileService {
             ListObjectsV2Request.Builder requestBuilder = ListObjectsV2Request.builder()
                     .bucket(bucketName)
                     .prefix(folderPrefix)
-                    .maxKeys(1000); // optional
+                    .maxKeys(1000);
 
             if (continuationToken != null) {
                 requestBuilder.continuationToken(continuationToken);
@@ -141,33 +215,49 @@ public class FileService {
         return folderSizes;
     }
 
-    public Resource loadFile(String folder, String filename, String password) throws IOException {
-        String s3Key = folder + "/" + filename;
+    public Resource loadFile(Long documentId, String password, Long versionId) throws IOException {
+        System.out.println("Loading file for documentId: " + documentId + ", versionId: " + versionId);
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IOException("Document not found for ID: " + documentId));
 
-        // Kiểm tra metadata
-        String fileUrl = "/storage/" + folder + "/" + filename;
-        Document document = documentRepository.findByFileUrl(fileUrl);
-        if (document == null) {
-            throw new IOException("Document metadata not found for file: " + fileUrl);
+        System.out.println("Document found, password hash: " + document.getPassword());
+        try {
+            if (!BCrypt.checkpw(password, document.getPassword())) {
+                throw new IOException("Invalid password");
+            }
+        } catch (IllegalArgumentException e) {
+            System.err.println("BCrypt error: " + e.getMessage());
+            throw new IOException("Invalid password hash format", e);
         }
 
-        if (!BCrypt.checkpw(password, document.getPassword())) {
-            throw new IOException("Invalid password");
+        String s3Key;
+        if (versionId != null) {
+            DocumentVersion version = documentVersionRepository.findById(versionId)
+                    .orElseThrow(() -> new IOException("Version not found for ID: " + versionId));
+            if (!version.getDocument().getId().equals(document.getId())) {
+                throw new IOException("Version does not belong to the specified document");
+            }
+            s3Key = version.getS3Url().substring("/storage/".length());
+        } else {
+            DocumentVersion latestVersion = documentVersionRepository.findLatestVersionByDocumentId(document.getId())
+                    .orElseThrow(() -> new IOException("No versions found for document: " + document.getId()));
+            s3Key = latestVersion.getS3Url().substring("/storage/".length());
         }
+        System.out.println("Downloading from S3, key: " + s3Key);
 
         try {
-            // Tải tệp tin từ S3
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                     .bucket(bucketName)
                     .key(s3Key)
                     .build();
             byte[] encryptedBytes = s3Client.getObject(getObjectRequest).readAllBytes();
 
-            // Giải mã
             byte[] decryptedBytes = AESUtil.decrypt(encryptedBytes, password);
-            return new ByteArrayResource(decryptedBytes);
+            Resource resource = new ByteArrayResource(decryptedBytes);
+            System.out.println("Returning resource: " + resource.getClass().getName());
+            return resource;
         } catch (Exception e) {
-            throw new IOException("Could not decrypt or download file from S3: " + filename, e);
+            throw new IOException("Could not decrypt or download file from S3 for documentId: " + documentId, e);
         }
     }
 
@@ -190,16 +280,15 @@ public class FileService {
             throw new IOException("Could not delete file from S3: " + s3Key, e);
         }
     }
-    // Phương thức lấy phần mở rộng của file
+
     private String getFileExtension(String fileName) {
         int dotIndex = fileName.lastIndexOf(".");
         if (dotIndex > 0) {
-            return fileName.substring(dotIndex + 1).toLowerCase(); // Trả về phần mở rộng file (nhỏ chữ)
+            return fileName.substring(dotIndex + 1).toLowerCase();
         }
         return "";
     }
 
-    // Phương thức kiểm tra file có phải là hình ảnh hay không
     private boolean isImage(String fileExtension) {
         return fileExtension.equalsIgnoreCase("jpg") ||
                 fileExtension.equalsIgnoreCase("jpeg") ||
@@ -209,7 +298,6 @@ public class FileService {
                 fileExtension.equalsIgnoreCase("webp");
     }
 
-    // Phương thức kiểm tra file có phải là video hay không
     private boolean isVideo(String fileExtension) {
         return fileExtension.equalsIgnoreCase("mp4") ||
                 fileExtension.equalsIgnoreCase("avi") ||

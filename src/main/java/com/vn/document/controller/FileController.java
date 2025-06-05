@@ -1,6 +1,17 @@
 package com.vn.document.controller;
 
+import com.vn.document.domain.Category;
+import com.vn.document.domain.Document;
+import com.vn.document.domain.User;
+import com.vn.document.domain.dto.response.FileUploadResponse;
+import com.vn.document.repository.CategoryRepository;
+import com.vn.document.repository.DocumentRepository;
+import com.vn.document.repository.DocumentVersionRepository;
+import com.vn.document.domain.DocumentVersion;
+import com.vn.document.repository.UserRepository;
+import com.vn.document.service.CategoryService;
 import com.vn.document.service.FileService;
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -20,66 +31,172 @@ public class FileController {
     @Autowired
     private FileService fileService;
 
-    @PostMapping
-    public ResponseEntity<String> postFile(@RequestPart("file") MultipartFile file,
-                                           @RequestParam("folder") String folder,
-                                           @RequestParam("password") String password) throws IOException {
-        if (file.isEmpty()) {
-            return ResponseEntity.badRequest().body("File trống.");
-        }
-        if (password == null || password.isEmpty()) {
-            return ResponseEntity.badRequest().body("Mật khẩu không được để trống.");
-        }
+    @Autowired
+    private UserRepository userRepository;
 
-        String responsePath = fileService.handleStoreFile(file, folder, password);
-        return ResponseEntity.ok(responsePath);
+    @Autowired
+    private CategoryService categoryService;
+
+    @PostMapping
+    public ResponseEntity<Object> postFile(
+            @RequestPart MultipartFile file,
+            @RequestParam String folder,
+            @RequestParam String password,
+            @RequestParam Long userId,
+            @RequestParam Long categoryId,
+            @RequestParam(required = false) Long documentId) throws IOException {
+        try {
+            if (file == null || file.isEmpty()) {
+                throw new IllegalArgumentException("Tệp không được để trống");
+            }
+            if (folder == null || folder.trim().isEmpty()) {
+                throw new IllegalArgumentException("Thư mục không được để trống");
+            }
+            if (password == null || password.trim().isEmpty()) {
+                throw new IllegalArgumentException("Mật khẩu không được để trống");
+            }
+
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy user với ID: " + userId));
+
+            Category category = categoryService.getCategoryById(categoryId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy category với ID: " + categoryId));
+
+            FileUploadResponse response = fileService.handleUploadNewVersion(file, folder, password, user, category, documentId);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Bad Request");
+            error.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        } catch (RuntimeException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Not Found");
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(404).body(error);
+        } catch (IOException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Server Error");
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        }
     }
 
     @PostMapping("/multi")
-    public ResponseEntity<List<String>> postMultipleFiles(@RequestParam("files") MultipartFile[] files,
-                                                          @RequestParam("folder") String folder,
-                                                          @RequestParam("password") String password) throws IOException {
-        if (files == null || files.length == 0) {
-            return ResponseEntity.badRequest().body(new ArrayList<>());
-        }
-        if (password == null || password.isEmpty()) {
-            return ResponseEntity.badRequest().body(new ArrayList<>());
-        }
+    public ResponseEntity<List<FileUploadResponse>> postMultipleFiles(
+            @RequestPart("files") MultipartFile[] files,
+            @RequestParam String folder,
+            @RequestParam String password,
+            @RequestParam Long userId,
+            @RequestParam Long categoryId,
+            @RequestParam(required = false) Long documentId) throws IOException {
+        try {
+            if (files == null || files.length == 0) {
+                throw new IllegalArgumentException("Danh sách tệp không được để trống");
+            }
+            if (folder == null || folder.trim().isEmpty()) {
+                throw new IllegalArgumentException("Thư mục không được để trống");
+            }
+            if (password == null || password.trim().isEmpty()) {
+                throw new IllegalArgumentException("Mật khẩu không được để trống");
+            }
 
-        List<String> filePaths = new ArrayList<>();
-        for (MultipartFile file : files) {
-            String saved = fileService.handleStoreFile(file, folder, password);
-            filePaths.add(saved);
-        }
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy user với ID: " + userId));
 
-        return ResponseEntity.ok(filePaths);
+            Category category = categoryService.getCategoryById(categoryId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy category với ID: " + categoryId));
+
+            List<FileUploadResponse> responses = new ArrayList<>();
+            for (MultipartFile file : files) {
+                if (!file.isEmpty()) {
+                    FileUploadResponse response = fileService.handleUploadNewVersion(file, folder, password, user, category, documentId);
+                    responses.add(response);
+                }
+            }
+
+            return ResponseEntity.ok(responses);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ArrayList<>());
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(404).body(new ArrayList<>());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(new ArrayList<>());
+        }
     }
 
     @GetMapping
-    public ResponseEntity<Resource> downloadFile(@RequestParam String folder,
-                                                 @RequestParam String filename,
-                                                 @RequestParam String password) throws IOException {
-        if (password == null || password.isEmpty()) {
-            return ResponseEntity.badRequest().body(null);
-        }
+    public ResponseEntity<Resource> downloadFile(
+            @RequestParam Long documentId,
+            @RequestParam String password,
+            @RequestParam(required = false) Long versionId) throws IOException {
+        try {
+            if (documentId == null) {
+                throw new IllegalArgumentException("Document ID không được để trống");
+            }
+            if (password == null || password.trim().isEmpty()) {
+                throw new IllegalArgumentException("Mật khẩu không được để trống");
+            }
 
-        Resource file = fileService.loadFile(folder, filename, password);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .body(file);
+            Resource file = fileService.loadFile(documentId, password, versionId);
+            DocumentVersion version = fileService.getDocumentVersion(documentId, versionId);
+            String filename = version.getS3Url().substring(version.getS3Url().lastIndexOf("/") + 1);
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .body(file);
+        } catch (IllegalArgumentException e) {
+            System.out.println("Bad Request: " + e.getMessage());
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Bad Request");
+            error.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(null);
+        } catch (IOException e) {
+            System.out.println("Not Found: " + e.getMessage());
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Not Found");
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(404).body(null);
+        } catch (Exception e) {
+            System.out.println("Server Error: " + e.getMessage());
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Server Error");
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(500).body(null);
+        }
     }
 
     @GetMapping("/folder-size")
     public ResponseEntity<Map<String, Object>> getFolderSize(@RequestParam String folder) {
-        long size = fileService.getFolderSize(folder);
-        Map<String, Object> response = new HashMap<>();
-        response.put("sizeInBytes", size);
-        return ResponseEntity.ok(response);
+        try {
+            if (folder == null || folder.trim().isEmpty()) {
+                throw new IllegalArgumentException("Thư mục không được để trống");
+            }
+
+            long size = fileService.getFolderSize(folder);
+            Map<String, Object> response = new HashMap<>();
+            response.put("sizeInBytes", size);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new HashMap<>());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(new HashMap<>());
+        }
     }
 
     @GetMapping("/folder-sizes")
     public ResponseEntity<Map<String, Long>> getFolderSizes(@RequestParam String parent) {
-        Map<String, Long> sizes = fileService.getFolderSizes(parent);
-        return ResponseEntity.ok(sizes);
+        try {
+            if (parent == null || parent.trim().isEmpty()) {
+                throw new IllegalArgumentException("Thư mục cha không được để trống");
+            }
+
+            Map<String, Long> sizes = fileService.getFolderSizes(parent);
+            return ResponseEntity.ok(sizes);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new HashMap<>());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(new HashMap<>());
+        }
     }
 }
