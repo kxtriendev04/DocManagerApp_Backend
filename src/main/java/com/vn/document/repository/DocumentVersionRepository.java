@@ -22,4 +22,6 @@ public interface DocumentVersionRepository extends JpaRepository<DocumentVersion
     Optional<DocumentVersion> findLatestVersionByDocumentId(Long documentId);
 
     void deleteByDocumentId(Long documentId);
+
+    Optional<DocumentVersion> findByDocumentIdAndVersionNumber(Long documentId, Integer versionNumber);
 }

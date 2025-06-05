@@ -151,6 +151,60 @@ public class FileService {
         }
     }
 
+    public Resource loadFileByVersionNumber(Long documentId, String password, Integer versionNumber) throws IOException {
+        // Tìm document
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IOException("Không tìm thấy document với ID: " + documentId));
+
+        // Kiểm tra mật khẩu
+        if (!BCrypt.checkpw(password, document.getPassword())) {
+            throw new IOException("Mật khẩu không hợp lệ");
+        }
+
+        // Tìm version
+        String s3Key;
+        DocumentVersion version;
+        if (versionNumber != null) {
+            version = documentVersionRepository.findByDocumentIdAndVersionNumber(documentId, versionNumber)
+                    .orElseThrow(() -> new IOException("Không tìm thấy version với số: " + versionNumber));
+            s3Key = version.getS3Url().substring("/storage/".length());
+        } else {
+            version = documentVersionRepository.findLatestVersionByDocumentId(documentId)
+                    .orElseThrow(() -> new IOException("Không tìm thấy version nào cho document: " + documentId));
+            s3Key = version.getS3Url().substring("/storage/".length());
+        }
+
+        try {
+            // Tải file từ S3
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(s3Key)
+                    .build();
+            byte[] encryptedBytes = s3Client.getObject(getObjectRequest).readAllBytes();
+
+            // Giải mã file
+            byte[] decryptedBytes = AESUtil.decrypt(encryptedBytes, password);
+            return new ByteArrayResource(decryptedBytes);
+        } catch (Exception e) {
+            throw new IOException("Không thể tải hoặc giải mã file từ S3: " + e.getMessage(), e);
+        }
+    }
+
+    public DocumentVersion getDocumentVersionByVersionNumber(Long documentId, Integer versionNumber) throws IOException {
+        // Kiểm tra document tồn tại
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IOException("Không tìm thấy document với ID: " + documentId));
+
+        // Lấy version
+        if (versionNumber != null) {
+            return documentVersionRepository.findByDocumentIdAndVersionNumber(documentId, versionNumber)
+                    .orElseThrow(() -> new IOException("Không tìm thấy version với số: " + versionNumber));
+        } else {
+            return documentVersionRepository.findLatestVersionByDocumentId(documentId)
+                    .orElseThrow(() -> new IOException("Không tìm thấy version nào cho document: " + documentId));
+        }
+    }
+
     public long getFolderSize(String folderPrefix) {
         long totalSize = 0;
 

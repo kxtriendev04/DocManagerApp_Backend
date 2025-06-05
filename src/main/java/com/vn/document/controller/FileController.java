@@ -132,10 +132,10 @@ public class FileController {
     }
 
     @GetMapping
-    public ResponseEntity<Resource> downloadFile(
+    public ResponseEntity<?> downloadFile(
             @RequestParam Long documentId,
             @RequestParam String password,
-            @RequestParam(required = false) Long versionId) throws IOException {
+            @RequestParam(required = false) Integer versionNumber) {
         try {
             if (documentId == null) {
                 throw new IllegalArgumentException("Document ID không được để trống");
@@ -144,31 +144,29 @@ public class FileController {
                 throw new IllegalArgumentException("Mật khẩu không được để trống");
             }
 
-            Resource file = fileService.loadFile(documentId, password, versionId);
-            DocumentVersion version = fileService.getDocumentVersion(documentId, versionId);
+            Resource file = fileService.loadFileByVersionNumber(documentId, password, versionNumber);
+            DocumentVersion version = fileService.getDocumentVersionByVersionNumber(documentId, versionNumber);
             String filename = version.getS3Url().substring(version.getS3Url().lastIndexOf("/") + 1);
 
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                     .body(file);
+
         } catch (IllegalArgumentException e) {
-            System.out.println("Bad Request: " + e.getMessage());
             Map<String, String> error = new HashMap<>();
-            error.put("error", "Bad Request");
+            error.put("error", HttpStatus.BAD_REQUEST.getReasonPhrase());
             error.put("message", e.getMessage());
-            return ResponseEntity.badRequest().body(null);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
         } catch (IOException e) {
-            System.out.println("Not Found: " + e.getMessage());
             Map<String, String> error = new HashMap<>();
-            error.put("error", "Not Found");
+            error.put("error", HttpStatus.NOT_FOUND.getReasonPhrase());
             error.put("message", e.getMessage());
-            return ResponseEntity.status(404).body(null);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         } catch (Exception e) {
-            System.out.println("Server Error: " + e.getMessage());
             Map<String, String> error = new HashMap<>();
-            error.put("error", "Server Error");
-            error.put("message", e.getMessage());
-            return ResponseEntity.status(500).body(null);
+            error.put("error", HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
+            error.put("message", "Lỗi server: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
         }
     }
 

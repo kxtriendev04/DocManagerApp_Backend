@@ -4,7 +4,9 @@ import com.vn.document.domain.dto.response.RestResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.core.MethodParameter;
+import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.http.server.ServletServerHttpRequest;
@@ -19,14 +21,16 @@ public class FormatResponseEntity implements ResponseBodyAdvice<Object> {
     public boolean supports(MethodParameter returnType, Class converterType) {
         Class<?> paramType = returnType.getParameterType();
 
-        // Nếu trả về là Resource hoặc ResponseEntity<Resource> thì không can thiệp
-        if (org.springframework.core.io.Resource.class.isAssignableFrom(paramType)) {
+        // Nếu trả về trực tiếp là Resource
+        if (Resource.class.isAssignableFrom(paramType)) {
             return false;
         }
 
-        if (org.springframework.http.ResponseEntity.class.isAssignableFrom(paramType)) {
-            // Kiểm tra kiểu generic bên trong ResponseEntity (nếu có)
-            if (returnType.getGenericParameterType().getTypeName().contains("org.springframework.core.io.Resource")) {
+        // Nếu trả về là ResponseEntity<Resource>
+        if (ResponseEntity.class.isAssignableFrom(paramType)) {
+            // Dự đoán tên method để tránh format sai cho download
+            String methodName = returnType.getMethod() != null ? returnType.getMethod().getName().toLowerCase() : "";
+            if (methodName.contains("download") || methodName.contains("file")) {
                 return false;
             }
         }
@@ -43,21 +47,22 @@ public class FormatResponseEntity implements ResponseBodyAdvice<Object> {
             ServerHttpRequest request,
             ServerHttpResponse response) {
 
+        // Nếu body là Resource thì không can thiệp
+        if (body instanceof Resource) {
+            return body;
+        }
+
         HttpServletResponse servletResponse = ((ServletServerHttpResponse) response).getServletResponse();
-        HttpServletRequest servletRequest = ((ServletServerHttpRequest) request).getServletRequest(); // Ép kiểu
+        HttpServletRequest servletRequest = ((ServletServerHttpRequest) request).getServletRequest();
 
         int status = servletResponse.getStatus();
         RestResponse<Object> res = new RestResponse<>();
 
-        if (body instanceof String) {
-            return body;
+        if (body instanceof String || status >= 400) {
+            return body; // Không wrap string hoặc lỗi HTTP
         }
 
-        if (status >= 400) {
-            return body;
-        }
-
-        // Kiểm tra nếu là POST thì set status thành 201
+        // Nếu là POST thành công, sửa thành 201
         if ("POST".equalsIgnoreCase(servletRequest.getMethod()) && status == 200) {
             servletResponse.setStatus(201);
             res.setStatusCode(201);
@@ -70,5 +75,4 @@ public class FormatResponseEntity implements ResponseBodyAdvice<Object> {
 
         return res;
     }
-
 }
