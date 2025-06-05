@@ -10,11 +10,14 @@ import com.vn.document.repository.DocumentVersionRepository;
 import com.vn.document.domain.DocumentVersion;
 import com.vn.document.repository.UserRepository;
 import com.vn.document.service.CategoryService;
+import com.vn.document.service.DocumentService;
 import com.vn.document.service.FileService;
+import jakarta.transaction.Transactional;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -36,6 +39,9 @@ public class FileController {
 
     @Autowired
     private CategoryService categoryService;
+
+    @Autowired
+    private DocumentService documentService;
 
     @PostMapping
     public ResponseEntity<Object> postFile(
@@ -197,6 +203,64 @@ public class FileController {
             return ResponseEntity.badRequest().body(new HashMap<>());
         } catch (Exception e) {
             return ResponseEntity.status(500).body(new HashMap<>());
+        }
+    }
+
+    //xoá file trên s3 + CSDL
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteMediaDocument(@PathVariable Long id, @RequestParam String password) {
+        try {
+            documentService.deleteMediaDocument(id, password);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", HttpStatus.BAD_REQUEST.getReasonPhrase());
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        } catch (RuntimeException e) {
+            Map<String, String> error = new HashMap<>();
+            if (e.getMessage().contains("Mật khẩu không hợp lệ")) {
+                error.put("error", HttpStatus.UNAUTHORIZED.getReasonPhrase());
+                error.put("message", "Mật khẩu không hợp lệ");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+            }
+            error.put("error", HttpStatus.NOT_FOUND.getReasonPhrase());
+            error.put("message", "Không tìm thấy document: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
+            error.put("message", "Lỗi server: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
+    //Xoá link trong CSDL
+    @DeleteMapping("/link/{id}")
+    public ResponseEntity<?> deleteLinkDocument(@PathVariable Long id, @RequestParam String password) {
+        try {
+            documentService.deleteLinkDocument(id, password);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", HttpStatus.BAD_REQUEST.getReasonPhrase());
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        } catch (RuntimeException e) {
+            Map<String, String> error = new HashMap<>();
+            if (e.getMessage().contains("Mật khẩu không hợp lệ")) {
+                error.put("error", HttpStatus.UNAUTHORIZED.getReasonPhrase());
+                error.put("message", "Mật khẩu không hợp lệ");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+            }
+            error.put("error", HttpStatus.NOT_FOUND.getReasonPhrase());
+            error.put("message", "Không tìm thấy document: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
+            error.put("message", "Lỗi server: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
         }
     }
 }

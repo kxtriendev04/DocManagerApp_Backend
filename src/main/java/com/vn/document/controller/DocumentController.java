@@ -87,21 +87,6 @@ public class DocumentController {
         }
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDocument(@PathVariable Long id, @RequestParam String password) {
-        try {
-            documentService.deleteDocument(id, password);
-            return ResponseEntity.noContent().build();
-        } catch (RuntimeException e) {
-            if (e.getMessage().contains("Invalid password")) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-            }
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<Document>> getDocumentsByUserId(@PathVariable Long userId) {
         List<Document> documents = documentService.getDocumentsByUserId(userId);

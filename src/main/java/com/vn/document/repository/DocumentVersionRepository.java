@@ -21,4 +21,5 @@ public interface DocumentVersionRepository extends JpaRepository<DocumentVersion
     @Query("SELECT v FROM DocumentVersion v WHERE v.document.id = :documentId AND v.versionNumber = (SELECT MAX(v2.versionNumber) FROM DocumentVersion v2 WHERE v2.document.id = :documentId)")
     Optional<DocumentVersion> findLatestVersionByDocumentId(Long documentId);
 
+    void deleteByDocumentId(Long documentId);
 }

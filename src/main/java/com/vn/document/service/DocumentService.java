@@ -1,12 +1,7 @@
 package com.vn.document.service;
 
-import com.vn.document.domain.Category;
-import com.vn.document.domain.Document;
-import com.vn.document.domain.Permission;
-import com.vn.document.domain.User;
-import com.vn.document.repository.BookmarkRepository;
-import com.vn.document.repository.DocumentRepository;
-import com.vn.document.repository.PermissionRepository;
+import com.vn.document.domain.*;
+import com.vn.document.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -27,6 +22,8 @@ public class DocumentService {
     private final PermissionRepository permissionRepository;
     private final BookmarkService bookmarkService;
     private final BookmarkRepository bookmarkRepository;
+    private final DocumentVersionRepository documentVersionRepository;
+    private final AccessLogRepository accessLogRepository;
     public List<Document> getAllDocuments() {
         return documentRepository.findAll();
     }
@@ -49,14 +46,6 @@ public class DocumentService {
         Category category = categoryService.handleFindCategoryById(document.getCategory().getId());
         document.setUser(user);
         document.setCategory(category);
-
-        documentRepository.save(document);
-
-//        if(!s2url)
-//          DocumentVersion
-
-
-
         return documentRepository.save(document);
     }
 
@@ -80,23 +69,76 @@ public class DocumentService {
     }
 
     @Transactional
-    public void deleteDocument(Long id, String password) {
-        permissionRepository.deleteByDocumentId(id);
-
+    public void deleteMediaDocument(Long id, String password) {
+        // Tìm document
         Document document = documentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Document not found with id: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy document với ID: " + id));
 
+        // Kiểm tra mật khẩu
         if (!BCrypt.checkpw(password, document.getPassword())) {
-            throw new RuntimeException("Invalid password");
+            throw new IllegalArgumentException("Mật khẩu không hợp lệ");
+        }
+
+        // Kiểm tra loại document
+//        if (!"media".equalsIgnoreCase(document.getFileType())) {
+//            throw new IllegalArgumentException("Document không phải loại media");
+//        }
+
+        try {
+            // Xóa file trên S3
+            List<DocumentVersion> versions = documentVersionRepository.findByDocumentId(id);
+            for (DocumentVersion version : versions) {
+                String s3Url = version.getS3Url();
+                if (s3Url != null && s3Url.startsWith("/storage/")) {
+                    fileService.deleteFile(s3Url);
+                }
+            }
+
+            // Xóa các bản ghi liên quan
+            documentVersionRepository.deleteByDocumentId(id);
+            permissionRepository.deleteByDocumentId(id);
+            bookmarkRepository.deleteByDocumentId(id);
+            accessLogRepository.deleteByDocumentId(id);
+
+            // Xóa document
+            documentRepository.deleteById(id);
+
+        } catch (IOException e) {
+            throw new RuntimeException("Không thể xóa file trên S3: " + e.getMessage(), e);
+        } catch (Exception e) {
+            throw new RuntimeException("Lỗi server khi xóa document: " + e.getMessage(), e);
+        }
+    }
+
+    @Transactional
+    public void deleteLinkDocument(Long id, String password) {
+        // Tìm document
+        Document document = documentRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy document với ID: " + id));
+
+        // Kiểm tra mật khẩu
+        if (!BCrypt.checkpw(password, document.getPassword())) {
+            throw new IllegalArgumentException("Mật khẩu không hợp lệ");
+        }
+
+        // Kiểm tra loại document
+        if (!"link".equalsIgnoreCase(document.getFileType())) {
+            throw new IllegalArgumentException("Document không phải loại link");
         }
 
         try {
-            fileService.deleteFile(document.getFileUrl());
-        } catch (IOException e) {
-            throw new RuntimeException("Could not delete file for document id: " + id, e);
-        }
+            // Xóa các bản ghi liên quan
+            documentVersionRepository.deleteByDocumentId(id);
+            permissionRepository.deleteByDocumentId(id);
+            bookmarkRepository.deleteByDocumentId(id);
+            accessLogRepository.deleteByDocumentId(id);
 
-        documentRepository.deleteById(id);
+            // Xóa document
+            documentRepository.deleteById(id);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Lỗi server khi xóa document: " + e.getMessage(), e);
+        }
     }
 
     public List<Document> getDocumentsByUserId(Long userId) {

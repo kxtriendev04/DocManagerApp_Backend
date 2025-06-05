@@ -16,4 +16,6 @@ public interface AccessLogRepository extends JpaRepository<AccessLog, Long> {
     List<AccessLog> findByDocumentId(Long docId);
 
     void deleteAllByUserId(Long userId);
+
+    void deleteByDocumentId(Long id);
 }
