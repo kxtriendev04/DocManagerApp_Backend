@@ -76,4 +76,10 @@ public class FileController {
         response.put("sizeInBytes", size);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/folder-sizes")
+    public ResponseEntity<Map<String, Long>> getFolderSizes(@RequestParam String parent) {
+        Map<String, Long> sizes = fileService.getFolderSizes(parent);
+        return ResponseEntity.ok(sizes);
+    }
 }
