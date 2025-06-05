@@ -64,6 +64,12 @@ dependencies {
     // Thư viện S3
     implementation(platform("software.amazon.awssdk:bom:2.25.10"))
     implementation("software.amazon.awssdk:s3")
+
+//    Thư viện Water mark
+//    testImplementation("org.springframework:spring-test:5.3.9")  // Chỉnh sửa version nếu cần
+    implementation("com.itextpdf:itext7-core:7.1.16")
+    implementation("org.apache.poi:poi-ooxml:5.2.3")
+//    implementation("com.xuggle.xuggler:xuggler-core:5.4")
 }
 
 tasks.withType<Test> {

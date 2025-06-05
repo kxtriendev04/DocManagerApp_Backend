@@ -14,6 +14,7 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 
+import java.io.File;
 import java.io.IOException;
 
 @Service
@@ -28,12 +29,36 @@ public class FileService {
     @Autowired
     private DocumentRepository documentRepository;
 
+    @Autowired
+    private WaterMarkService waterMarkService;
+
     public String handleStoreFile(MultipartFile file, String folder, String password) throws IOException {
         String finalName = System.currentTimeMillis() + "-" + file.getOriginalFilename();
         String s3Key = folder + "/" + finalName; // Tạo key cho S3 (e.g., "folder/filename")
 
         try {
-            byte[] originalBytes = file.getBytes();
+            // Kiểm tra định dạng tệp
+            String fileExtension = getFileExtension(file.getOriginalFilename());
+            String watermarkText = "Watermark";
+            MultipartFile watermarkedFile = null;
+            // Kiểm tra loại tệp và gọi hàm tương ứng
+            if (fileExtension.equalsIgnoreCase("pdf")) {
+                // Xử lý watermark cho PDF
+                watermarkedFile = waterMarkService.addWatermarkToPDF(file, watermarkText);
+            } else if (fileExtension.equalsIgnoreCase("docx")) {
+                // Xử lý watermark cho DOCX
+                watermarkedFile = waterMarkService.addWatermarkToDocx(file, watermarkText);
+            } else if (isImage(fileExtension)) {
+                // Xử lý watermark cho ảnh
+                watermarkedFile = waterMarkService.addWatermarkToImage(file, watermarkText);
+            } else if (isVideo(fileExtension)) {
+                // Xử lý watermark cho video
+                watermarkedFile = waterMarkService.addWatermarkToVideo(file, watermarkText);
+            }
+
+
+//          Mã hóa
+            byte[] originalBytes = watermarkedFile.getBytes();
             byte[] encryptedBytes = AESUtil.encrypt(originalBytes, password);
 
             // Lưu tệp tin mã hóa lên S3
@@ -122,5 +147,33 @@ public class FileService {
         } catch (Exception e) {
             throw new IOException("Could not delete file from S3: " + s3Key, e);
         }
+    }
+    // Phương thức lấy phần mở rộng của file
+    private String getFileExtension(String fileName) {
+        int dotIndex = fileName.lastIndexOf(".");
+        if (dotIndex > 0) {
+            return fileName.substring(dotIndex + 1).toLowerCase(); // Trả về phần mở rộng file (nhỏ chữ)
+        }
+        return "";
+    }
+
+    // Phương thức kiểm tra file có phải là hình ảnh hay không
+    private boolean isImage(String fileExtension) {
+        return fileExtension.equalsIgnoreCase("jpg") ||
+                fileExtension.equalsIgnoreCase("jpeg") ||
+                fileExtension.equalsIgnoreCase("png") ||
+                fileExtension.equalsIgnoreCase("gif") ||
+                fileExtension.equalsIgnoreCase("bmp") ||
+                fileExtension.equalsIgnoreCase("webp");
+    }
+
+    // Phương thức kiểm tra file có phải là video hay không
+    private boolean isVideo(String fileExtension) {
+        return fileExtension.equalsIgnoreCase("mp4") ||
+                fileExtension.equalsIgnoreCase("avi") ||
+                fileExtension.equalsIgnoreCase("mkv") ||
+                fileExtension.equalsIgnoreCase("mov") ||
+                fileExtension.equalsIgnoreCase("flv") ||
+                fileExtension.equalsIgnoreCase("wmv");
     }
 }
