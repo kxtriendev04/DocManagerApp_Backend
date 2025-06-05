@@ -9,22 +9,12 @@ import java.util.List;
 
 @Repository
 public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
-
-    // Tìm kiếm các bookmark của người dùng theo userId
     List<Bookmark> findByUserId(Long userId);
-
     List<Bookmark> findByUserId(Long userId, Sort sort);
-
-    // Tìm kiếm các bookmark của tài liệu theo docId
     List<Bookmark> findByDocumentId(Long docId);
-
     List<Bookmark> findByUserIdAndIsFavoriteTrue(Long userId);
-
     List<Bookmark> findByUserIdAndDocument_DocumentNameContainingIgnoreCaseOrDocument_EncryptionMethodContainingIgnoreCase(Long userId, String name, String encryption);
-
-
     List<Bookmark> findByUserIdAndCategoryId(Long userId, Long categoryId);
-
     void deleteAllByUserId(Long userId);
-
+    void deleteByDocumentIdAndUserId(Long documentId, Long userId); // Thêm phương thức này
 }

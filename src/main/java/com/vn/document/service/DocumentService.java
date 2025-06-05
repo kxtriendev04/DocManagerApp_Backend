@@ -4,6 +4,7 @@ import com.vn.document.domain.Category;
 import com.vn.document.domain.Document;
 import com.vn.document.domain.Permission;
 import com.vn.document.domain.User;
+import com.vn.document.repository.BookmarkRepository;
 import com.vn.document.repository.DocumentRepository;
 import com.vn.document.repository.PermissionRepository;
 import jakarta.transaction.Transactional;
@@ -24,7 +25,8 @@ public class DocumentService {
     private final DocumentRepository documentRepository;
     private final FileService fileService;
     private final PermissionRepository permissionRepository;
-
+    private final BookmarkService bookmarkService;
+    private final BookmarkRepository bookmarkRepository;
     public List<Document> getAllDocuments() {
         return documentRepository.findAll();
     }
@@ -49,9 +51,11 @@ public class DocumentService {
         document.setCategory(category);
         return documentRepository.save(document);
     }
+
     public List<Document> getDocumentsByCategoryId(Long categoryId) {
         return documentRepository.findByCategoryId(categoryId);
     }
+
     public Document updateDocument(Long id, Document documentDetails) {
         return documentRepository.findById(id)
                 .map(document -> {
@@ -61,6 +65,7 @@ public class DocumentService {
                     document.setPassword(documentDetails.getPassword());
                     document.setEncryptionMethod(documentDetails.getEncryptionMethod());
                     document.setCategory(documentDetails.getCategory());
+                    document.setIsFavorite(documentDetails.getIsFavorite()); // Cập nhật isFavorite
                     return documentRepository.save(document);
                 })
                 .orElseThrow(() -> new RuntimeException("Document not found"));
@@ -73,28 +78,28 @@ public class DocumentService {
         Document document = documentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Document not found with id: " + id));
 
-        // Kiểm tra mật khẩu
         if (!BCrypt.checkpw(password, document.getPassword())) {
             throw new RuntimeException("Invalid password");
         }
 
-        // Xóa tệp tin vật lý
         try {
             fileService.deleteFile(document.getFileUrl());
         } catch (IOException e) {
             throw new RuntimeException("Could not delete file for document id: " + id, e);
         }
 
-        // Xóa bản ghi document
         documentRepository.deleteById(id);
     }
 
     public List<Document> getDocumentsByUserId(Long userId) {
         return documentRepository.findByUserId(userId);
     }
-    public Document handleFindDocumentById(Long id){
-        return documentRepository.findById(id).orElseThrow(()->new RuntimeException("Document id không hợp lệ"));
+
+    public Document handleFindDocumentById(Long id) {
+        return documentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Document id không hợp lệ"));
     }
+
     public List<Document> searchDocumentsByName(String name) {
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("Tên tài liệu không được để trống");
@@ -108,6 +113,7 @@ public class DocumentService {
         }
         return documentRepository.findByFileTypeInIgnoreCase(fileTypes);
     }
+
     public List<Document> searchDocumentsByKeyword(String keyword) {
         if (keyword == null || keyword.trim().isEmpty()) {
             throw new IllegalArgumentException("Từ khóa tìm kiếm không được để trống");
@@ -115,4 +121,28 @@ public class DocumentService {
         return documentRepository.searchByKeyword(keyword);
     }
 
+    // Thêm phương thức đánh dấu/bỏ đánh dấu yêu thích
+    @Transactional
+    public Document toggleFavorite(Long id) {
+        Document document = documentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Document not found with id: " + id));
+        boolean newFavoriteStatus = !document.getIsFavorite();
+        document.setIsFavorite(newFavoriteStatus);
+        Document updatedDocument = documentRepository.saveAndFlush(document); // Sử dụng saveAndFlush để đảm bảo commit
+
+        if (newFavoriteStatus) {
+            // Tạo bookmark khi đánh dấu yêu thích
+            bookmarkService.createBookmarkForDocument(document.getUser().getId(), id);
+        } else {
+            // Xóa bookmark khi bỏ yêu thích
+            bookmarkRepository.deleteByDocumentIdAndUserId(id, document.getUser().getId());
+        }
+
+        return updatedDocument;
+    }
+
+    // Thêm phương thức lấy danh sách tài liệu yêu thích
+    public List<Document> getFavoriteDocumentsByUserId(Long userId) {
+        return documentRepository.findByUserIdAndIsFavoriteTrue(userId);
+    }
 }

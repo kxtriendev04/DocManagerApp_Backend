@@ -8,7 +8,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/documents")
@@ -38,7 +40,6 @@ public class DocumentController {
 
     @PostMapping
     public ResponseEntity<Document> createDocument(@RequestBody Document document) {
-        // Kiểm tra dữ liệu đầu vào
         if (document.getDocumentName() == null || document.getDocumentName().isEmpty()) {
             return ResponseEntity.badRequest().body(null);
         }
@@ -52,7 +53,6 @@ public class DocumentController {
             return ResponseEntity.badRequest().body(null);
         }
 
-        // Băm mật khẩu trước khi lưu
         String passwordHash = BCrypt.hashpw(document.getPassword(), BCrypt.gensalt());
         document.setPassword(passwordHash);
 
@@ -62,7 +62,6 @@ public class DocumentController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Document> updateDocument(@PathVariable Long id, @RequestBody Document documentDetails) {
-        // Kiểm tra dữ liệu đầu vào
         if (documentDetails.getDocumentName() == null || documentDetails.getDocumentName().isEmpty()) {
             return ResponseEntity.badRequest().body(null);
         }
@@ -73,7 +72,6 @@ public class DocumentController {
             return ResponseEntity.badRequest().body(null);
         }
 
-        // Nếu có mật khẩu mới, băm lại
         if (documentDetails.getPassword() != null && !documentDetails.getPassword().isEmpty()) {
             String passwordHash = BCrypt.hashpw(documentDetails.getPassword(), BCrypt.gensalt());
             documentDetails.setPassword(passwordHash);
@@ -107,10 +105,13 @@ public class DocumentController {
         List<Document> documents = documentService.getDocumentsByUserId(userId);
         return ResponseEntity.ok(documents);
     }
+
     @GetMapping("/category/{categoryId}")
-    public List<Document> getDocumentsByCategoryId(@PathVariable Long categoryId) {
-        return documentService.getDocumentsByCategoryId(categoryId);
+    public ResponseEntity<List<Document>> getDocumentsByCategoryId(@PathVariable Long categoryId) {
+        List<Document> documents = documentService.getDocumentsByCategoryId(categoryId);
+        return ResponseEntity.ok(documents);
     }
+
     @GetMapping("/search/by-name")
     public ResponseEntity<List<Document>> searchDocumentsByName(@RequestParam String name) {
         try {
@@ -133,8 +134,42 @@ public class DocumentController {
 
     @GetMapping("/search")
     public ResponseEntity<List<Document>> searchDocuments(@RequestParam String keyword) {
-        List<Document> documents = documentService.searchDocumentsByKeyword(keyword);
-        return ResponseEntity.ok(documents);
+        try {
+            List<Document> documents = documentService.searchDocumentsByKeyword(keyword);
+            return ResponseEntity.ok(documents);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
+    // Thêm endpoint để đánh dấu/bỏ đánh dấu yêu thích
+    @PatchMapping("/{id}/toggle-favorite")
+    public ResponseEntity<Map<String, Object>> toggleFavorite(@PathVariable Long id) {
+        try {
+            Document updated = documentService.toggleFavorite(id);
+            Map<String, Object> response = new HashMap<>();
+            response.put("error", null);
+            response.put("message", "Success");
+            response.put("results", updated);
+            response.put("status_code", 200);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("error", e.getMessage());
+            response.put("message", "Failed to toggle favorite");
+            response.put("results", null);
+            response.put("status_code", HttpStatus.NOT_FOUND.value());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        }
+    }
+
+    // Thêm endpoint để lấy danh sách tài liệu yêu thích
+    @GetMapping("/user/{userId}/favorites")
+    public ResponseEntity<List<Document>> getFavoriteDocuments(@PathVariable Long userId) {
+        List<Document> documents = documentService.getFavoriteDocumentsByUserId(userId);
+        if (documents.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+        return ResponseEntity.ok(documents);
+    }
 }

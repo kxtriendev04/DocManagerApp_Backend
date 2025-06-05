@@ -1,4 +1,5 @@
 package com.vn.document.domain;
+
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -49,10 +50,14 @@ public class Document {
     @JoinColumn(name = "category_id")
     private Category category;
 
+    @Column(name = "is_favorite") // Thêm trường isFavorite
+    private Boolean isFavorite = false; // Mặc định là false
+
     @PrePersist
     public void handleBeforeCreate() {
         this.createdAt = new Timestamp(System.currentTimeMillis());
         this.updatedAt = this.createdAt;
+        this.isFavorite = false; // Đảm bảo giá trị mặc định
     }
 
     @PreUpdate
