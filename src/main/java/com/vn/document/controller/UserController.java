@@ -70,14 +70,19 @@ public class UserController {
     @PutMapping
     public ResponseEntity<User> updateUser(@RequestBody User user) throws NotFoundException {
         User updatedUser = userService.handleGetUserById(user.getId());
+        updatedUser.setFullName(user.getFullName());
+        updatedUser.setEmail(user.getEmail());
         if (updatedUser != null) {
-            user.setPassword(passwordEncoder.encode((user.getPassword())));
+            if (user.getPassword() != null && !user.getPassword().isBlank()) {
+                updatedUser.setPassword(passwordEncoder.encode(user.getPassword()));
+            }
             userService.handleUpdateUser(user);
         } else {
             throw new NotFoundException();
         }
         return ResponseEntity.ok(updatedUser);
     }
+
     @GetMapping("/myinfor/{email}")
     public ResponseEntity<User> getUserByEmail(@PathVariable String email) {
         User user = userService.handleGetUserByUsername(email);

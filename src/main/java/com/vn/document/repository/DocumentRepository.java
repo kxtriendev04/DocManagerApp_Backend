@@ -14,8 +14,8 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     List<Document> findByCategoryId(Long categoryId);
     Document findByFileUrl(String fileUrl);
     List<Document> findByDocumentNameContainingIgnoreCase(String documentName);
-
     List<Document> findByFileTypeInIgnoreCase(List<String> fileTypes);
+    List<Document> findByUserIdAndIsFavoriteTrue(Long userId); // Thêm phương thức tìm tài liệu yêu thích
 
     @Query("SELECT d FROM Document d " +
             "WHERE LOWER(d.documentName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +

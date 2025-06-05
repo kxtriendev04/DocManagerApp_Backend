@@ -1,53 +1,55 @@
 package com.vn.document.service;
 
 import com.vn.document.domain.Bookmark;
-import com.vn.document.domain.Category;
 import com.vn.document.domain.Document;
 import com.vn.document.domain.User;
 import com.vn.document.repository.BookmarkRepository;
+import com.vn.document.repository.DocumentRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class BookmarkService {
 
     private final UserService userService;
-    private final DocumentService documentService;
+    private final DocumentRepository documentRepository;
     private final BookmarkRepository bookmarkRepository;
 
-    // Lấy tất cả các bookmark của người dùng
     public List<Bookmark> getBookmarksByUserId(Long userId) {
         return bookmarkRepository.findByUserId(userId);
     }
 
-    // Lấy tất cả các bookmark của tài liệu
     public List<Bookmark> getBookmarksByDocId(Long docId) {
         return bookmarkRepository.findByDocumentId(docId);
     }
 
-    // Tạo một bookmark mới
+    @Transactional
     public Bookmark createBookmark(Bookmark bookmark) {
         User user = userService.handleFindUserById(bookmark.getUser().getId());
-        Document document = documentService.handleFindDocumentById(bookmark.getDocument().getId());
+        Document document = documentRepository.findById(bookmark.getDocument().getId())
+                .orElseThrow(() -> new RuntimeException("Document not found"));
         bookmark.setUser(user);
         bookmark.setDocument(document);
+        bookmark.setCreatedAt(new Timestamp(System.currentTimeMillis())); // Sửa lỗi ép kiểu
         return bookmarkRepository.save(bookmark);
     }
 
-    // Xóa một bookmark
     public void deleteBookmark(Long bookmarkId) {
         bookmarkRepository.deleteById(bookmarkId);
     }
 
-    // Lấy bookmark của người dùng với sắp xếp
+    public void deleteBookmarkByDocumentIdAndUserId(Long documentId, Long userId) {
+        bookmarkRepository.deleteByDocumentIdAndUserId(documentId, userId);
+    }
+
     public List<Bookmark> getBookmarksByUserId(Long userId, String sortBy, String sortDir) {
-        // Kiểm tra sortBy hợp lệ
         List<String> validSortFields = Arrays.asList("id", "createdAt", "note", "isFavorite");
         if (!validSortFields.contains(sortBy)) {
             throw new IllegalArgumentException("Invalid sort field: " + sortBy);
@@ -57,28 +59,54 @@ public class BookmarkService {
         return bookmarkRepository.findByUserId(userId, sort);
     }
 
-    // Tìm kiếm bookmark
     public List<Bookmark> searchBookmarks(Long userId, String keyword) {
         return bookmarkRepository.findByUserIdAndDocument_DocumentNameContainingIgnoreCaseOrDocument_EncryptionMethodContainingIgnoreCase(
                 userId, keyword, keyword
         );
     }
 
-    // Đánh dấu yêu thích
-    public Bookmark toggleFavorite(Long id) {
-        Bookmark bookmark = bookmarkRepository.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy"));
-        bookmark.setIsFavorite(!bookmark.getIsFavorite());
+    @Transactional
+    public Bookmark createBookmarkForDocument(Long userId, Long documentId) {
+        User user = userService.handleFindUserById(userId);
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new RuntimeException("Document not found"));
+
+        Bookmark bookmark = new Bookmark();
+        bookmark.setUser(user);
+        bookmark.setDocument(document);
+        bookmark.setCategory(document.getCategory());
+        bookmark.setIsFavorite(true);
+        bookmark.setCreatedAt(new Timestamp(System.currentTimeMillis())); // Sửa lỗi ép kiểu
         return bookmarkRepository.save(bookmark);
     }
 
-    // Cập nhật bookmark
+    @Transactional
+    public Bookmark toggleFavorite(Long id) {
+        Bookmark bookmark = bookmarkRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Bookmark not found"));
+        boolean newFavoriteStatus = !bookmark.getIsFavorite();
+        bookmark.setIsFavorite(newFavoriteStatus);
+
+        // Đồng bộ trạng thái isFavorite của tài liệu
+        Document document = documentRepository.findById(bookmark.getDocument().getId())
+                .orElseThrow(() -> new RuntimeException("Document not found"));
+        document.setIsFavorite(newFavoriteStatus);
+        documentRepository.saveAndFlush(document);
+
+        if (!newFavoriteStatus) {
+            // Xóa bookmark khi bỏ yêu thích
+            bookmarkRepository.delete(bookmark);
+            return null; // Trả về null để báo hiệu bookmark đã bị xóa
+        }
+
+        return bookmarkRepository.save(bookmark);
+    }
+
     public Bookmark updateBookmark(Long id, Bookmark updatedBookmark) {
         Bookmark bookmark = bookmarkRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bookmark"));
         if (updatedBookmark.getDocument() != null && updatedBookmark.getDocument().getCategory() != null) {
-            Category category = new Category();
-            category.setId(updatedBookmark.getDocument().getCategory().getId());
-            bookmark.setCategory(category);
+            bookmark.setCategory(updatedBookmark.getDocument().getCategory());
         }
         if (updatedBookmark.getNote() != null) {
             bookmark.setNote(updatedBookmark.getNote());
@@ -86,27 +114,14 @@ public class BookmarkService {
         return bookmarkRepository.save(bookmark);
     }
 
-    // Lấy chi tiết bookmark
     public Bookmark getBookmarkById(Long id) {
         return bookmarkRepository.findById(id).orElse(null);
     }
 
-    // Di chuyển bookmark đến collection
     public Bookmark moveToCollection(Long id, Long newCollectionId) {
-        Bookmark bookmark = bookmarkRepository.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy"));
+        Bookmark bookmark = bookmarkRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy bookmark"));
+        // Cập nhật logic di chuyển collection nếu cần
         return bookmarkRepository.save(bookmark);
     }
-
-//
-//    public List<Bookmark> filterBookmarks(Long userId, Long categoryId, Long collectionId) {
-//        if (categoryId != null && collectionId != null) {
-//            return bookmarkRepository.findByUserIdAndCategoryIdAndCollectionId(userId, categoryId, collectionId);
-//        } else if (categoryId != null) {
-//            return bookmarkRepository.findByUserIdAndCategoryId(userId, categoryId);
-//        } else if (collectionId != null) {
-//            return bookmarkRepository.findByUserIdAndCollectionId(userId, collectionId);
-//        } else {
-//            return bookmarkRepository.findByUserId(userId);
-//        }
-//    }
 }

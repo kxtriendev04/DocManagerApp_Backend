@@ -13,6 +13,9 @@ import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.List;
 
 import java.io.File;
 import java.io.IOException;
@@ -97,6 +100,45 @@ public class FileService {
         } while (continuationToken != null);
 
         return totalSize;
+    }
+
+    public Map<String, Long> getFolderSizes(String parentFolder) {
+        Map<String, Long> folderSizes = new HashMap<>();
+
+        ListObjectsV2Request request = ListObjectsV2Request.builder()
+                .bucket(bucketName)
+                .prefix(parentFolder)
+                .delimiter("/")
+                .build();
+
+        ListObjectsV2Response response = s3Client.listObjectsV2(request);
+
+        List<CommonPrefix> subFolders = response.commonPrefixes();
+        for (CommonPrefix prefix : subFolders) {
+            String folderPrefix = prefix.prefix();
+
+            long folderSize = 0;
+            String continuationToken = null;
+
+            do {
+                ListObjectsV2Request subRequest = ListObjectsV2Request.builder()
+                        .bucket(bucketName)
+                        .prefix(folderPrefix)
+                        .continuationToken(continuationToken)
+                        .build();
+
+                ListObjectsV2Response subResponse = s3Client.listObjectsV2(subRequest);
+                for (S3Object s3Object : subResponse.contents()) {
+                    folderSize += s3Object.size();
+                }
+
+                continuationToken = subResponse.nextContinuationToken();
+            } while (continuationToken != null);
+
+            folderSizes.put(folderPrefix, folderSize);
+        }
+
+        return folderSizes;
     }
 
     public Resource loadFile(String folder, String filename, String password) throws IOException {
