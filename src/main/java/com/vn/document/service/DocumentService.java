@@ -49,6 +49,14 @@ public class DocumentService {
         Category category = categoryService.handleFindCategoryById(document.getCategory().getId());
         document.setUser(user);
         document.setCategory(category);
+
+        documentRepository.save(document);
+
+//        if(!s2url)
+//          DocumentVersion
+
+
+
         return documentRepository.save(document);
     }
 

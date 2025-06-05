@@ -1,6 +1,7 @@
 package com.vn.document.controller;
 
 import com.vn.document.domain.Document;
+import com.vn.document.domain.DocumentVersion;
 import com.vn.document.service.DocumentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -52,6 +53,7 @@ public class DocumentController {
         if (document.getUser() == null || document.getUser().getId() == null) {
             return ResponseEntity.badRequest().body(null);
         }
+
 
         String passwordHash = BCrypt.hashpw(document.getPassword(), BCrypt.gensalt());
         document.setPassword(passwordHash);
