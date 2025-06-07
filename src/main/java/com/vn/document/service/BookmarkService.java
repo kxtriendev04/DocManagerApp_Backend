@@ -162,4 +162,19 @@ public class BookmarkService {
 
         return bookmarkRepository.save(bookmark);
     }
+
+    //Cập nhật bookmark theo docId và userId
+
+    @Transactional
+    public Bookmark updateBookmarkByDocumentIdAndUserId(Long documentId, Long userId, Bookmark updatedBookmark) {
+        List<Bookmark> bookmarks = bookmarkRepository.findByDocumentIdAndUserId(documentId, userId);
+        if (bookmarks.isEmpty()) {
+            throw new RuntimeException("Bookmark not found");
+        }
+        Bookmark bookmark = bookmarks.get(0);
+        if (updatedBookmark.getDocument() != null && updatedBookmark.getDocument().getCategory() != null) {
+            bookmark.setCategory(updatedBookmark.getDocument().getCategory());
+        }
+        return bookmarkRepository.save(bookmark);
+    }
 }

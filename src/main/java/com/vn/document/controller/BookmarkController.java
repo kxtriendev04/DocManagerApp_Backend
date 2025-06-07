@@ -95,4 +95,28 @@ public class BookmarkController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         }
     }
+
+    //Xóa bookmark theo doc id và user id
+    @DeleteMapping("/document/{docId}")
+    public ResponseEntity<Void> deleteBookmarkByDocumentIdAndUserId(
+            @PathVariable Long docId,
+            @RequestParam Long userId,
+            @RequestParam(required = false) String password) {
+        try {
+            bookmarkService.deleteBookmarkByDocumentIdAndUserId(docId, userId);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+    }
+
+    //Cập nhật bookmark theo doc id và userId
+    @PutMapping("/document/{docId}")
+    public ResponseEntity<Bookmark> updateBookmarkByDocumentIdAndUserId(
+            @PathVariable Long docId,
+            @RequestParam Long userId,
+            @RequestBody Bookmark updatedBookmark) {
+        Bookmark result = bookmarkService.updateBookmarkByDocumentIdAndUserId(docId, userId, updatedBookmark);
+        return ResponseEntity.ok(result);
+    }
 }
