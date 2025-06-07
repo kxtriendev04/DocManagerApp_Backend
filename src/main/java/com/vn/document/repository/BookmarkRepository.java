@@ -18,4 +18,6 @@ public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
     void deleteAllByUserId(Long userId);
     void deleteByDocumentId(Long documentId);
     void deleteByDocumentIdAndUserId(Long documentId, Long userId); // Thêm phương thức này
+
+    List<Bookmark> findByDocumentIdAndUserId(Long documentId, Long userId);
 }

@@ -39,8 +39,10 @@ public class BookmarkController {
 
     // Lấy tất cả các bookmark của tài liệu
     @GetMapping("/document/{docId}")
-    public ResponseEntity<List<Bookmark>> getBookmarksByDocId(@PathVariable Long docId) {
-        List<Bookmark> bookmarks = bookmarkService.getBookmarksByDocId(docId);
+    public ResponseEntity<List<Bookmark>> getBookmarksByDocIdAndUserId(
+            @PathVariable Long docId,
+            @RequestParam Long userId) {
+        List<Bookmark> bookmarks = bookmarkService.getBookmarksByDocIdAndUserId(docId, userId);
         if (bookmarks.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
@@ -76,6 +78,21 @@ public class BookmarkController {
             return ResponseEntity.ok(bookmark);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PatchMapping("/documents/{docId}/toggle-favorite")
+    public ResponseEntity<Bookmark> toggleFavorite(
+            @PathVariable Long docId,
+            @RequestParam Long userId) {
+        try {
+            Bookmark bookmark = bookmarkService.toggleFavoriteByDocumentIdAndUserId(docId, userId);
+            if (bookmark == null) {
+                return ResponseEntity.noContent().build();
+            }
+            return ResponseEntity.ok(bookmark);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         }
     }
 }

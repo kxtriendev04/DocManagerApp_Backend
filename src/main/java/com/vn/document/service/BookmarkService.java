@@ -127,10 +127,39 @@ public class BookmarkService {
         return bookmarkRepository.findById(id).orElse(null);
     }
 
-//    public Bookmark moveToCollection(Long id, Long newCollectionId) {
-//        Bookmark bookmark = bookmarkRepository.findById(id)
-//                .orElseThrow(() -> new RuntimeException("Không tìm thấy bookmark"));
-//        // Cập nhật logic di chuyển collection nếu cần
-//        return bookmarkRepository.save(bookmark);
-//    }
+    public List<Bookmark> getBookmarksByDocIdAndUserId(Long docId, Long userId) {
+        return bookmarkRepository.findByDocumentIdAndUserId(docId, userId);
+    }
+
+    @Transactional
+    public Bookmark toggleFavoriteByDocumentIdAndUserId(Long documentId, Long userId) {
+        // Tìm bookmark theo documentId và userId
+        List<Bookmark> bookmarks = bookmarkRepository.findByDocumentIdAndUserId(documentId, userId);
+        Bookmark bookmark;
+
+        if (bookmarks.isEmpty()) {
+            // Nếu không có bookmark, tạo mới với isFavorite = true
+            return createBookmarkForDocument(userId, documentId);
+        } else {
+            // Lấy bookmark đầu tiên
+            bookmark = bookmarks.get(0);
+        }
+
+        boolean newFavoriteStatus = !bookmark.getIsFavorite();
+        bookmark.setIsFavorite(newFavoriteStatus);
+
+        // Đồng bộ trạng thái isFavorite của tài liệu
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new RuntimeException("Document not found"));
+        document.setIsFavorite(newFavoriteStatus);
+        documentRepository.saveAndFlush(document);
+
+        if (!newFavoriteStatus) {
+            // Xóa bookmark khi bỏ yêu thích
+            bookmarkRepository.delete(bookmark);
+            return null;
+        }
+
+        return bookmarkRepository.save(bookmark);
+    }
 }

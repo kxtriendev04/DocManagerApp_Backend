@@ -142,9 +142,13 @@ public class DocumentService {
     }
 
     public List<Document> getDocumentsByUserId(Long userId) {
-        return documentRepository.findByUserId(userId);
+        List<Document> documents = documentRepository.findByUserId(userId);
+        documents.forEach(doc -> {
+            List<Bookmark> bookmarks = bookmarkRepository.findByDocumentIdAndUserId(doc.getId(), userId);
+            doc.setIsFavorite(!bookmarks.isEmpty() && bookmarks.get(0).getIsFavorite());
+        });
+        return documents;
     }
-
     public Document handleFindDocumentById(Long id) {
         return documentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Document id không hợp lệ"));
