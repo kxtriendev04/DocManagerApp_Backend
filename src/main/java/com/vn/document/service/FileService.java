@@ -92,7 +92,21 @@ public class FileService {
                 document.setUser(user);
                 document.setCategory(category);
                 document.setDocumentName(file.getOriginalFilename());
-                document.setFileType(getFileExtension(file.getOriginalFilename()));
+//                if (fileExtension.equalsIgnoreCase("pdf")) {
+//                    watermarkedFile = waterMarkService.addWatermarkToPDF(file, watermarkText);
+//                } else if (fileExtension.equalsIgnoreCase("docx")) {
+//                    watermarkedFile = waterMarkService.addWatermarkToDocx(file, watermarkText);
+//                } else if (isImage(fileExtension)) {
+//                    watermarkedFile = waterMarkService.addWatermarkToImage(file, watermarkText);
+//                } else if (isVideo(fileExtension)) {
+//                    watermarkedFile = waterMarkService.addWatermarkToVideo(file, watermarkText);
+//                }
+                if(isImage(fileExtension))
+                    document.setFileType("Image");
+                else if(isVideo(fileExtension))
+                    document.setFileType("Video");
+                else
+                    document.setFileType("Document");
                 if (s3Url != null && !s3Url.startsWith("/storage/")) {
                     document.setFileUrl(s3Url);
                 }
