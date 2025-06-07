@@ -33,8 +33,8 @@ public class Bookmark {
     @JoinColumn(name = "category_id")
     private Category category;
 
-    @Column(name = "note", length = 500)
-    private String note;
+//    @Column(name = "note", length = 500)
+//    private String note;
 
     @Column(name = "is_favorite")
     private Boolean isFavorite = false;

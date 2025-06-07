@@ -120,7 +120,7 @@ public class FileService {
             newVersion.setDocument(document);
             newVersion.setVersionNumber(newVersionNumber);
             newVersion.setS3Url(s3Url);
-            newVersion.setFileSize((int) fileSize);
+            newVersion.setFileSize((Long) fileSize);   //đổi từ int sang Long
             documentVersionRepository.save(newVersion);
 
             // Trả về response

@@ -32,7 +32,7 @@ public class DocumentVersion {
     private String s3Url;
 
     @Column(name = "file_size", nullable = false)
-    private Integer fileSize; // byte
+    private Long fileSize; // byte  đổi từ Integer sang Long
 
     @Column(name = "created_at")
     private Timestamp createdAt;

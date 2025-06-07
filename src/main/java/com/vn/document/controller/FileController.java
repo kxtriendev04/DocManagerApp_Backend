@@ -43,6 +43,9 @@ public class FileController {
     @Autowired
     private DocumentService documentService;
 
+    @Autowired
+    private DocumentVersionRepository documentVersionRepository;
+
     @PostMapping
     public ResponseEntity<Object> postFile(
             @RequestPart MultipartFile file,
@@ -170,6 +173,7 @@ public class FileController {
         }
     }
 
+    //Tính tổng dung lượng của File
     @GetMapping("/folder-size")
     public ResponseEntity<Map<String, Object>> getFolderSize(@RequestParam String folder) {
         try {
@@ -256,6 +260,37 @@ public class FileController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
+            error.put("error", HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
+            error.put("message", "Lỗi server: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
+    @GetMapping("/document-size")
+    public ResponseEntity<Map<String, Object>> getDocumentSize(@RequestParam Long documentId) {
+        try {
+            if (documentId == null) {
+                throw new IllegalArgumentException("Document ID không được để trống");
+            }
+
+            // Lấy tất cả các phiên bản của tài liệu
+            List<DocumentVersion> versions = documentVersionRepository.findByDocumentId(documentId);
+            long totalSize = versions.stream()
+                    .filter(version -> version.getFileSize() != null)
+                    .mapToLong(DocumentVersion::getFileSize)
+                    .sum();
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("documentId", documentId);
+            response.put("totalSizeInBytes", totalSize);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> error = new HashMap<>(); // Sửa thành Map<String, Object>
+            error.put("error", HttpStatus.BAD_REQUEST.getReasonPhrase());
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>(); // Sửa thành Map<String, Object>
             error.put("error", HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
             error.put("message", "Lỗi server: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);

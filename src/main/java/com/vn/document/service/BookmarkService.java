@@ -22,25 +22,33 @@ public class BookmarkService {
     private final DocumentRepository documentRepository;
     private final BookmarkRepository bookmarkRepository;
 
+    // Lấy tất cả các bookmark của người dùng
     public List<Bookmark> getBookmarksByUserId(Long userId) {
         return bookmarkRepository.findByUserId(userId);
     }
 
+    // Lấy tất cả các bookmark của tài liệu
     public List<Bookmark> getBookmarksByDocId(Long docId) {
         return bookmarkRepository.findByDocumentId(docId);
     }
 
+    // Tạo một bookmark mới
     @Transactional
     public Bookmark createBookmark(Bookmark bookmark) {
         User user = userService.handleFindUserById(bookmark.getUser().getId());
         Document document = documentRepository.findById(bookmark.getDocument().getId())
                 .orElseThrow(() -> new RuntimeException("Document not found"));
+        if (document.getCategory() == null) {
+            throw new IllegalArgumentException("Document must have a category");
+        }
         bookmark.setUser(user);
         bookmark.setDocument(document);
-        bookmark.setCreatedAt(new Timestamp(System.currentTimeMillis())); // Sửa lỗi ép kiểu
+        bookmark.setCategory(document.getCategory());
+        bookmark.setCreatedAt(new Timestamp(System.currentTimeMillis()));
         return bookmarkRepository.save(bookmark);
     }
 
+    // Xóa một bookmark
     public void deleteBookmark(Long bookmarkId) {
         bookmarkRepository.deleteById(bookmarkId);
     }
@@ -70,13 +78,15 @@ public class BookmarkService {
         User user = userService.handleFindUserById(userId);
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new RuntimeException("Document not found"));
-
+        if (document.getCategory() == null) {
+            throw new IllegalArgumentException("Document must have a category");
+        }
         Bookmark bookmark = new Bookmark();
         bookmark.setUser(user);
         bookmark.setDocument(document);
         bookmark.setCategory(document.getCategory());
         bookmark.setIsFavorite(true);
-        bookmark.setCreatedAt(new Timestamp(System.currentTimeMillis())); // Sửa lỗi ép kiểu
+        bookmark.setCreatedAt(new Timestamp(System.currentTimeMillis()));
         return bookmarkRepository.save(bookmark);
     }
 
@@ -102,26 +112,25 @@ public class BookmarkService {
         return bookmarkRepository.save(bookmark);
     }
 
+    // Cập nhật bookmark
     public Bookmark updateBookmark(Long id, Bookmark updatedBookmark) {
         Bookmark bookmark = bookmarkRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bookmark"));
         if (updatedBookmark.getDocument() != null && updatedBookmark.getDocument().getCategory() != null) {
             bookmark.setCategory(updatedBookmark.getDocument().getCategory());
         }
-        if (updatedBookmark.getNote() != null) {
-            bookmark.setNote(updatedBookmark.getNote());
-        }
         return bookmarkRepository.save(bookmark);
     }
 
+    // Lấy chi tiết bookmark
     public Bookmark getBookmarkById(Long id) {
         return bookmarkRepository.findById(id).orElse(null);
     }
 
-    public Bookmark moveToCollection(Long id, Long newCollectionId) {
-        Bookmark bookmark = bookmarkRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy bookmark"));
-        // Cập nhật logic di chuyển collection nếu cần
-        return bookmarkRepository.save(bookmark);
-    }
+//    public Bookmark moveToCollection(Long id, Long newCollectionId) {
+//        Bookmark bookmark = bookmarkRepository.findById(id)
+//                .orElseThrow(() -> new RuntimeException("Không tìm thấy bookmark"));
+//        // Cập nhật logic di chuyển collection nếu cần
+//        return bookmarkRepository.save(bookmark);
+//    }
 }
