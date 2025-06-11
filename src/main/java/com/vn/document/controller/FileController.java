@@ -18,9 +18,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.core.io.ByteArrayResource;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -91,6 +94,38 @@ public class FileController {
         }
     }
 
+    // Tải file tạm thời lên s3
+    @PostMapping("/upload")
+    public ResponseEntity<?> uploadFile(@RequestParam("file") MultipartFile file) {
+        try {
+            if (file == null || file.isEmpty()) {
+                throw new IllegalArgumentException("File không được để trống");
+            }
+
+            // Tải file lên S3 và lấy thông tin
+            Map<String, String> fileInfo = fileService.uploadFileToS3(file);
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(fileInfo);
+
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", HttpStatus.BAD_REQUEST.getReasonPhrase());
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(error);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
+            error.put("message", "Lỗi server: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(error);
+        }
+    }
+
     @PostMapping("/multi")
     public ResponseEntity<List<FileUploadResponse>> postMultipleFiles(
             @RequestPart("files") MultipartFile[] files,
@@ -147,29 +182,69 @@ public class FileController {
                 throw new IllegalArgumentException("Mật khẩu không được để trống");
             }
 
+            // Lấy file từ FileService
             Resource file = fileService.loadFileByVersionNumber(documentId, password, versionNumber);
             DocumentVersion version = fileService.getDocumentVersionByVersionNumber(documentId, versionNumber);
             String filename = version.getS3Url().substring(version.getS3Url().lastIndexOf("/") + 1);
 
+            // Đọc dữ liệu file
+            byte[] fileContent;
+            if (file instanceof ByteArrayResource) {
+                fileContent = ((ByteArrayResource) file).getByteArray();
+            } else {
+                fileContent = file.getInputStream().readAllBytes();
+            }
+
+            // Xác định Content-Type dựa trên phần mở rộng file
+            MediaType contentType = getContentType(filename);
+
+            // Thiết lập headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"");
+            headers.setContentType(contentType);
+            headers.setContentLength(fileContent.length);
+
+            // Trả về ResponseEntity
             return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                    .body(file);
+                    .headers(headers)
+                    .body(new ByteArrayResource(fileContent));
 
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", HttpStatus.BAD_REQUEST.getReasonPhrase());
             error.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(error);
         } catch (IOException e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", HttpStatus.NOT_FOUND.getReasonPhrase());
             error.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(error);
         } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
             error.put("message", "Lỗi server: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(error);
+        }
+    }
+
+    private MediaType getContentType(String filename) {
+        String extension = filename.substring(filename.lastIndexOf(".") + 1).toLowerCase();
+        switch (extension) {
+            case "pdf":
+                return MediaType.APPLICATION_PDF;
+            case "png":
+                return MediaType.IMAGE_PNG;
+            case "jpg":
+            case "jpeg":
+                return MediaType.IMAGE_JPEG;
+            default:
+                return MediaType.APPLICATION_OCTET_STREAM; // Fallback cho các loại file khác
         }
     }
 
@@ -263,6 +338,35 @@ public class FileController {
             error.put("error", HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
             error.put("message", "Lỗi server: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
+    // xoá file tạm thời trên s3
+    @DeleteMapping("/delete")
+    public ResponseEntity<?> deleteFile(@RequestParam("fileName") String fileName) {
+        try {
+            if (fileName == null || fileName.trim().isEmpty()) {
+                throw new IllegalArgumentException("Tên file không được để trống");
+            }
+
+            fileService.deleteFileFromS3(fileName);
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("message", "Xóa file thành công"));
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", HttpStatus.BAD_REQUEST.getReasonPhrase());
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(error);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
+            error.put("message", "Lỗi server: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(error);
         }
     }
 

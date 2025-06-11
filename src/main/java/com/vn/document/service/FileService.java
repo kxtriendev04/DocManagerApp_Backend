@@ -20,10 +20,14 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.sql.Timestamp;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
+import java.time.Duration;
 
 import java.io.IOException;
 
@@ -142,6 +146,62 @@ public class FileService {
         } catch (Exception e) {
             e.printStackTrace(); // Thêm dòng này để in chi tiết stacktrace
             throw new IOException("Encryption or S3 upload failed: " + e.getMessage(), e);
+        }
+    }
+
+    public Map<String, String> uploadFileToS3(MultipartFile multipartFile) throws IOException {
+        try {
+            // Chuyển MultipartFile thành File tạm
+            File file = convertMultiPartToFile(multipartFile);
+            String originalFilename = multipartFile.getOriginalFilename();
+            String fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            String uniqueFileName = "temp/" + UUID.randomUUID().toString() + fileExtension;
+
+            // Tải file lên S3
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(uniqueFileName)
+                    .build();
+            s3Client.putObject(putObjectRequest, software.amazon.awssdk.core.sync.RequestBody.fromFile(file));
+
+            // Xóa file tạm
+            file.delete();
+
+            // Tạo pre-signed URL (hết hạn sau 1 giờ)
+            String fileUrl = s3Client.utilities().getUrl(builder -> builder
+                    .bucket(bucketName)
+                    .key(uniqueFileName)
+//                    .expiration(Duration.ofHours(1))
+            ).toExternalForm();
+
+            // Trả về thông tin file
+            Map<String, String> fileInfo = new HashMap<>();
+            fileInfo.put("fileName", uniqueFileName);
+            fileInfo.put("fileUrl", fileUrl);
+            return fileInfo;
+        } catch (Exception e) {
+            throw new IOException("Không thể tải file lên S3: " + e.getMessage(), e);
+        }
+    }
+
+    private File convertMultiPartToFile(MultipartFile file) throws IOException {
+        File convFile = new File(System.getProperty("java.io.tmpdir") + "/" + file.getOriginalFilename());
+        try (FileOutputStream fos = new FileOutputStream(convFile)) {
+            fos.write(file.getBytes());
+        }
+        return convFile;
+    }
+
+    public void deleteFileFromS3(String fileName) throws IOException {
+        try {
+            DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(fileName)
+                    .build();
+            s3Client.deleteObject(deleteObjectRequest);
+            System.out.println(">>> DELETED FILE FROM S3: " + fileName);
+        } catch (Exception e) {
+            throw new IOException("Không thể xóa file trên S3: " + fileName, e);
         }
     }
 
