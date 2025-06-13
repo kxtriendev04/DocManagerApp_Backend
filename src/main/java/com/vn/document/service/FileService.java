@@ -1,5 +1,17 @@
 package com.vn.document.service;
+// iText PDF (PDF generation)
+import com.itextpdf.kernel.font.PdfFont;
+import com.itextpdf.kernel.font.PdfFontFactory;
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.layout.element.Paragraph;
 
+// Apache POI (Xử lý DOCX)
+import lombok.Getter;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+
+// Các lớp liên quan đến ứng dụng của bạn
 import com.vn.document.domain.Category;
 import com.vn.document.domain.Document;
 import com.vn.document.domain.DocumentVersion;
@@ -8,7 +20,9 @@ import com.vn.document.domain.dto.response.FileUploadResponse;
 import com.vn.document.repository.DocumentRepository;
 import com.vn.document.repository.DocumentVersionRepository;
 import com.vn.document.util.AESUtil;
-import lombok.Getter;
+import com.vn.document.util.SecurityUtil;
+
+// Spring Framework (Dependency Injection, Service, File Upload)
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -16,20 +30,20 @@ import org.springframework.core.io.Resource;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+// AWS SDK (S3 Operations)
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 
-import java.io.File;
-import java.io.FileOutputStream;
+// Java I/O (File handling)
+import java.io.*;
 import java.sql.Timestamp;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
-import java.time.Duration;
 
-import java.io.IOException;
 
 @Service
 @Getter
@@ -49,6 +63,8 @@ public class FileService {
 
     @Autowired
     private DocumentVersionRepository documentVersionRepository;
+    @Autowired
+    private SecurityUtil securityUtil;
 
     public FileUploadResponse handleUploadNewVersion(
             MultipartFile file, String folder, String password, User user, Category category, Long documentId
@@ -59,7 +75,8 @@ public class FileService {
         try {
             // Kiểm tra định dạng tệp
             String fileExtension = getFileExtension(file.getOriginalFilename());
-            String watermarkText = "Watermark";
+            String email= securityUtil.getCurrentUserLogin().orElseThrow();
+            String watermarkText = email;
             MultipartFile watermarkedFile = file; // Default to original file if no watermarking is applied
 
             // Kiểm tra loại tệp và gọi hàm tương ứng
@@ -149,12 +166,62 @@ public class FileService {
         }
     }
 
+    private File convertMultiPartToFile(MultipartFile file) throws IOException {
+        File convFile = new File(System.getProperty("java.io.tmpdir") + "/" + file.getOriginalFilename());
+        try (FileOutputStream fos = new FileOutputStream(convFile)) {
+            fos.write(file.getBytes());
+        }
+        return convFile;
+    }
+//    public Map<String, String> uploadFileToS3(MultipartFile multipartFile) throws IOException {
+//        try {
+//            // Chuyển MultipartFile thành File tạm
+//            File file = convertMultiPartToFile(multipartFile);
+//            String originalFilename = multipartFile.getOriginalFilename();
+//            String fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
+//            String uniqueFileName = "temp/" + UUID.randomUUID().toString() + fileExtension;
+//
+//            // Tải file lên S3
+//            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+//                    .bucket(bucketName)
+//                    .key(uniqueFileName)
+//                    .build();
+//            s3Client.putObject(putObjectRequest, software.amazon.awssdk.core.sync.RequestBody.fromFile(file));
+//
+//            // Xóa file tạm
+//            file.delete();
+//
+//            // Tạo pre-signed URL (hết hạn sau 1 giờ)
+//            String fileUrl = s3Client.utilities().getUrl(builder -> builder
+//                    .bucket(bucketName)
+//                    .key(uniqueFileName)
+////                    .expiration(Duration.ofHours(1))
+//            ).toExternalForm();
+//
+//            // Trả về thông tin file
+//            Map<String, String> fileInfo = new HashMap<>();
+//            fileInfo.put("fileName", uniqueFileName);
+//            fileInfo.put("fileUrl", fileUrl);
+//            return fileInfo;
+//        } catch (Exception e) {
+//            throw new IOException("Không thể tải file lên S3: " + e.getMessage(), e);
+//        }
+//    }
+
     public Map<String, String> uploadFileToS3(MultipartFile multipartFile) throws IOException {
         try {
             // Chuyển MultipartFile thành File tạm
             File file = convertMultiPartToFile(multipartFile);
             String originalFilename = multipartFile.getOriginalFilename();
             String fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
+
+            // Kiểm tra nếu file là DOCX, thì chuyển đổi sang PDF
+            if (fileExtension.equalsIgnoreCase(".docx")) {
+                file = convertDocxToPdf(file);  // Chuyển DOCX sang PDF
+                fileExtension = ".pdf";  // Đổi phần mở rộng file sang .pdf
+            }
+
+            // Tạo tên file duy nhất để lưu trữ trên S3
             String uniqueFileName = "temp/" + UUID.randomUUID().toString() + fileExtension;
 
             // Tải file lên S3
@@ -171,8 +238,7 @@ public class FileService {
             String fileUrl = s3Client.utilities().getUrl(builder -> builder
                     .bucket(bucketName)
                     .key(uniqueFileName)
-//                    .expiration(Duration.ofHours(1))
-            ).toExternalForm();
+                    .build()).toExternalForm();
 
             // Trả về thông tin file
             Map<String, String> fileInfo = new HashMap<>();
@@ -184,13 +250,34 @@ public class FileService {
         }
     }
 
-    private File convertMultiPartToFile(MultipartFile file) throws IOException {
-        File convFile = new File(System.getProperty("java.io.tmpdir") + "/" + file.getOriginalFilename());
-        try (FileOutputStream fos = new FileOutputStream(convFile)) {
-            fos.write(file.getBytes());
+    // Phương thức chuyển DOCX sang PDF
+    private File convertDocxToPdf(File docxFile) throws IOException {
+        File pdfFile = new File(System.getProperty("java.io.tmpdir") + "/" + UUID.randomUUID().toString() + ".pdf");
+
+        try (FileInputStream fis = new FileInputStream(docxFile);
+             OutputStream fos = new FileOutputStream(pdfFile)) {
+
+            // Đọc file DOCX
+            XWPFDocument document = new XWPFDocument(fis);
+
+            // Khởi tạo PdfWriter từ iText 7
+            PdfWriter writer = new PdfWriter(fos);
+            PdfDocument pdfDoc = new PdfDocument(writer);
+            com.itextpdf.layout.Document pdfDocument = new com.itextpdf.layout.Document(pdfDoc);
+
+            // Đọc nội dung từ DOCX và ghi vào PDF
+            PdfFont font = PdfFontFactory.createFont("/fonts/SVN-ArialRegular.ttf", PdfFontFactory.EmbeddingStrategy.PREFER_EMBEDDED);
+
+            for (XWPFParagraph paragraph : document.getParagraphs()) {
+                pdfDocument.add(new Paragraph(paragraph.getText()).setFont(font));  // Đảm bảo sử dụng font hỗ trợ Unicode
+            }
+
+            pdfDocument.close(); // Đảm bảo đóng tài liệu PDF
         }
-        return convFile;
+
+        return pdfFile;
     }
+
 
     public void deleteFileFromS3(String fileName) throws IOException {
         try {

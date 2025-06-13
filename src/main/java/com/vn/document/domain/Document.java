@@ -1,5 +1,6 @@
 package com.vn.document.domain;
 
+import com.itextpdf.kernel.pdf.PdfDocument;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -52,6 +53,9 @@ public class Document {
 
     @Column(name = "is_favorite") // Thêm trường isFavorite
     private Boolean isFavorite = false; // Mặc định là false
+
+    public Document(PdfDocument pdfDoc) {
+    }
 
     @PrePersist
     public void handleBeforeCreate() {

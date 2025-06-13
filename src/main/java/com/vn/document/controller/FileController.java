@@ -344,30 +344,31 @@ public class FileController {
     // xoá file tạm thời trên s3
     @DeleteMapping("/delete")
     public ResponseEntity<?> deleteFile(@RequestParam("fileName") String fileName) {
-        try {
-            if (fileName == null || fileName.trim().isEmpty()) {
-                throw new IllegalArgumentException("Tên file không được để trống");
-            }
-
-            fileService.deleteFileFromS3(fileName);
-            return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", "Xóa file thành công"));
-        } catch (IllegalArgumentException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", HttpStatus.BAD_REQUEST.getReasonPhrase());
-            error.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(error);
-        } catch (Exception e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
-            error.put("message", "Lỗi server: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(error);
-        }
+//        try {
+//            if (fileName == null || fileName.trim().isEmpty()) {
+//                throw new IllegalArgumentException("Tên file không được để trống");
+//            }
+//
+//            fileService.deleteFileFromS3(fileName);
+//            return ResponseEntity.ok()
+//                    .contentType(MediaType.APPLICATION_JSON)
+//                    .body(Map.of("message", "Xóa file thành công"));
+//        } catch (IllegalArgumentException e) {
+//            Map<String, String> error = new HashMap<>();
+//            error.put("error", HttpStatus.BAD_REQUEST.getReasonPhrase());
+//            error.put("message", e.getMessage());
+//            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+//                    .contentType(MediaType.APPLICATION_JSON)
+//                    .body(error);
+//        } catch (Exception e) {
+//            Map<String, String> error = new HashMap<>();
+//            error.put("error", HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
+//            error.put("message", "Lỗi server: " + e.getMessage());
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                    .contentType(MediaType.APPLICATION_JSON)
+//                    .body(error);
+//        }
+        return null;
     }
 
     @GetMapping("/document-size")

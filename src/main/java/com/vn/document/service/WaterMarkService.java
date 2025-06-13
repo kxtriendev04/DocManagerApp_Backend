@@ -182,10 +182,10 @@ public class WaterMarkService {
         // Mở file hình ảnh
         BufferedImage image = ImageIO.read(byteArrayInputStream);
         Graphics2D g2d = (Graphics2D) image.getGraphics();
-        Font font = new Font("Arial", Font.BOLD, 50);
+        Font font = new Font("Arial", Font.BOLD, 60);
         g2d.setFont(font);
         g2d.setColor(new Color(255, 0, 0, 128)); // Màu đỏ với độ trong suốt
-        g2d.drawString(watermarkText, 30, 30); // Vị trí của watermark
+        g2d.drawString(watermarkText, 50, 50); // Vị trí của watermark
 
         // Ghi dữ liệu vào ByteArrayOutputStream
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
