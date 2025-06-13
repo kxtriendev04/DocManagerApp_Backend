@@ -6,6 +6,8 @@ import com.vn.document.domain.Document;
 import com.vn.document.domain.User;
 import com.vn.document.repository.CategoryRepository;
 import com.vn.document.repository.DocumentRepository;
+import com.vn.document.repository.BookmarkRepository; // Repository cho bookmarks
+import com.vn.document.repository.DocumentVersionRepository; // Repository cho document_versions
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,8 +21,10 @@ import java.util.Optional;
 public class CategoryService {
     private final UserService userService;
     private final CategoryRepository categoryRepository;
-    private final DocumentRepository documentRepository; // Inject DocumentRepository
-    private final FileService fileService; // Inject FileService
+    private final DocumentRepository documentRepository;
+    private final BookmarkRepository bookmarkRepository; // Inject BookmarkRepository
+    private final DocumentVersionRepository documentVersionRepository; // Inject DocumentVersionRepository
+    private final FileService fileService;
 
     public List<Category> getAllCategories() {
         return categoryRepository.findAll();
@@ -70,9 +74,15 @@ public class CategoryService {
         // Tìm tất cả Document liên quan đến category
         List<Document> documents = documentRepository.findByCategoryId(categoryId);
 
-        // Xóa từng Document và các file liên quan trên S3
+        // Xóa từng Document và các bản ghi liên quan
         for (Document document : documents) {
-            // Xóa file trên S3
+            // Xóa các bookmark liên quan
+            bookmarkRepository.deleteByDocumentId(document.getId());
+
+            // Xóa các document_versions liên quan
+            documentVersionRepository.deleteByDocumentId(document.getId());
+
+            // Xóa file trên S3 nếu có
             if (document.getFileUrl() != null && document.getFileUrl().startsWith("/storage/")) {
                 try {
                     fileService.deleteFile(document.getFileUrl());
@@ -80,7 +90,8 @@ public class CategoryService {
                     throw new RuntimeException("Failed to delete file from S3 for document ID: " + document.getId(), e);
                 }
             }
-            // Xóa Document (các DocumentVersion liên quan sẽ được xóa tự động nếu có cascade)
+
+            // Xóa Document
             documentRepository.delete(document);
         }
 
