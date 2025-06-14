@@ -18,10 +18,21 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     List<Document> findByUserIdAndIsFavoriteTrue(Long userId); // Thêm phương thức tìm tài liệu yêu thích
 
     @Query("SELECT d FROM Document d " +
-            "WHERE LOWER(d.documentName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+            "WHERE (d.user.id = :userId OR d.id IN (SELECT p.document.id FROM Permission p WHERE p.user.id = :userId)) " +
+            "AND LOWER(d.documentName) LIKE LOWER(CONCAT('%', :name, '%'))")
+    List<Document> findByUserIdOrSharedAndDocumentNameContainingIgnoreCase(@Param("userId") Long userId, @Param("name") String name);
+
+    @Query("SELECT d FROM Document d " +
+            "WHERE (d.user.id = :userId OR d.id IN (SELECT p.document.id FROM Permission p WHERE p.user.id = :userId)) " +
+            "AND d.fileType IN :fileTypes")
+    List<Document> findByUserIdOrSharedAndFileTypeInIgnoreCase(@Param("userId") Long userId, @Param("fileTypes") List<String> fileTypes);
+
+    @Query("SELECT d FROM Document d " +
+            "WHERE (d.user.id = :userId OR d.id IN (SELECT p.document.id FROM Permission p WHERE p.user.id = :userId)) " +
+            "AND (LOWER(d.documentName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(d.fileType) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "OR LOWER(d.category.categoryName) LIKE LOWER(CONCAT('%', :keyword, '%'))")
-    List<Document> searchByKeyword(@Param("keyword") String keyword);
+            "OR LOWER(d.category.categoryName) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    List<Document> searchByKeywordForUserOrShared(@Param("userId") Long userId, @Param("keyword") String keyword);
 
     void deleteAllByUserId(Long userId);
 }

@@ -154,25 +154,25 @@ public class DocumentService {
                 .orElseThrow(() -> new RuntimeException("Document id không hợp lệ"));
     }
 
-    public List<Document> searchDocumentsByName(String name) {
+    public List<Document> searchDocumentsByName(Long userId, String name) {
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("Tên tài liệu không được để trống");
         }
-        return documentRepository.findByDocumentNameContainingIgnoreCase(name);
+        return documentRepository.findByUserIdOrSharedAndDocumentNameContainingIgnoreCase(userId, name);
     }
 
-    public List<Document> searchDocumentsByFileType(List<String> fileTypes) {
+    public List<Document> searchDocumentsByFileType(Long userId, List<String> fileTypes) {
         if (fileTypes == null || fileTypes.isEmpty()) {
             throw new IllegalArgumentException("Định dạng file không được để trống");
         }
-        return documentRepository.findByFileTypeInIgnoreCase(fileTypes);
+        return documentRepository.findByUserIdOrSharedAndFileTypeInIgnoreCase(userId, fileTypes);
     }
 
-    public List<Document> searchDocumentsByKeyword(String keyword) {
+    public List<Document> searchDocumentsByKeyword(Long userId, String keyword) {
         if (keyword == null || keyword.trim().isEmpty()) {
             throw new IllegalArgumentException("Từ khóa tìm kiếm không được để trống");
         }
-        return documentRepository.searchByKeyword(keyword);
+        return documentRepository.searchByKeywordForUserOrShared(userId, keyword);
     }
 
     // Thêm phương thức đánh dấu/bỏ đánh dấu yêu thích

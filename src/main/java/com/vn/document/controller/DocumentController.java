@@ -100,9 +100,9 @@ public class DocumentController {
     }
 
     @GetMapping("/search/by-name")
-    public ResponseEntity<List<Document>> searchDocumentsByName(@RequestParam String name) {
+    public ResponseEntity<List<Document>> searchDocumentsByName(@RequestParam Long userId, @RequestParam String name) {
         try {
-            List<Document> documents = documentService.searchDocumentsByName(name);
+            List<Document> documents = documentService.searchDocumentsByName(userId, name);
             return ResponseEntity.ok(documents);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
@@ -110,9 +110,9 @@ public class DocumentController {
     }
 
     @GetMapping("/search/by-filetype")
-    public ResponseEntity<List<Document>> searchDocumentsByFileType(@RequestParam List<String> fileType) {
+    public ResponseEntity<List<Document>> searchDocumentsByFileType(@RequestParam Long userId, @RequestParam List<String> fileType) {
         try {
-            List<Document> documents = documentService.searchDocumentsByFileType(fileType);
+            List<Document> documents = documentService.searchDocumentsByFileType(userId, fileType);
             return ResponseEntity.ok(documents);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
@@ -120,9 +120,9 @@ public class DocumentController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<Document>> searchDocuments(@RequestParam String keyword) {
+    public ResponseEntity<List<Document>> searchDocuments(@RequestParam Long userId, @RequestParam String keyword) {
         try {
-            List<Document> documents = documentService.searchDocumentsByKeyword(keyword);
+            List<Document> documents = documentService.searchDocumentsByKeyword(userId, keyword);
             return ResponseEntity.ok(documents);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
